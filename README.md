@@ -11,8 +11,10 @@ Spesifikasi kanonis berada di `umrah-fare-watch-spec/`. Dokumen tersebut adalah 
   - M0: Scaffold audit dan baseline (stack: TypeScript strict, Express 5, node:sqlite, Vitest, vanilla HTML/CSS/JS client).
   - M1: Domain types, mock flight/hotel providers, Trip Composer, store append-only, search API.
   - M2: UI pencarian responsif dengan headline `Cari Biaya Umrah Termurah`, progress, hasil, partial section, disclaimer, reminder reservasi hotel.
-  - M3 (parsial): test suite acceptance 82 test untuk validation, dates, money, ranking, coverage, providers, composer, alerts, dan API integration.
-- **Belum dikerjakan:** M4 penuh (watchlist/alerts worker, scheduler coverage), M5-M7 (provider real), M8 (booking handoff produksi), M9 (release gate penuh). Lihat `umrah-fare-watch-spec/08_IMPLEMENTATION_PLAN.md`.
+  - M3: 113 test Vitest acceptance untuk validation, dates, money, ranking, coverage, providers, composer, alerts, API integration, auth, watchlist, coverage scheduler, dan kalender 365 hari.
+  - UX: kalender harga termurah (cheapest-date grid), sort/filter hasil, konteks harga jujur, kalender cakupan flight/hotel 365 hari.
+  - M4 (slice): watchlist COMPLETE_TRIP + FLIGHT + HOTEL dengan alert in-app (budget threshold, material drop, cooldown, dedup fingerprint), akun pengguna dengan session scrypt, scheduler coverage tier A/B/C, dan worker berkala.
+- **Belum dikerjakan:** M5-M7 (provider real, menunggu akses resmi), M8 (booking handoff produksi). Release gate M9 sudah tersedia sebagai `npm run release-gate`. Lihat `umrah-fare-watch-spec/08_IMPLEMENTATION_PLAN.md`.
 
 ## Quick start
 
@@ -24,8 +26,18 @@ npm run lint
 npm test
 npm run smoke        # mock end-to-end tanpa kredensial
 npm run build        # tsc + copy UI ke dist
+npm run release-gate # semua check berurutan: typecheck, lint, test, build, smoke, spec validator
 npm start            # jalankan hasil build (dist/api/server.js)
 ```
+
+## Menjalankan di server (bukan github.io)
+
+GitHub Pages hanya menyajikan file statis; aplikasi ini membutuhkan backend Node.js (API Express, SQLite, auth session, dan background worker), sehingga perlu server sendiri:
+
+- **PaaS (Railway, Render, Fly.io):** push repo GitHub, set `NODE_VERSION` >= 22.5, run `npm install && npm run build && npm start`. Catatan: disk SQLite di PaaS bersifat ephemeral saat redeploy; gunakan volume persistent atau DB eksternal jika data pantauan harus bertahan.
+- **VPS kecil (DigitalOcean, Hetzner, dan sejenisnya):** kontrol penuh; SQLite permanen di disk; jalankan dengan PM2 atau systemd. Direkomendasikan saat provider real aktif karena API key wajib tersimpan server-side.
+- **Envvars penting:** `PORT`, `DB_PATH`, `MOCK_MODE`, `SESSION_TTL_DAYS`, `WATCHLIST_WORKER_INTERVAL_MS`, `COVERAGE_WORKER_INTERVAL_MS`. Lihat `.env.example`.
+- Kredensial provider real hanya dimuat dari secret manager server-side, tidak pernah dari frontend atau file env yang di-commit.
 
 ## Struktur
 

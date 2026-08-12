@@ -46,7 +46,8 @@
     - `WatchlistService.create/check` dispatch per tipe; alert memakai detail komponen (airline/pattern untuk FLIGHT, property/city untuk HOTEL) dengan dedup fingerprint yang sama. Validasi: origin/pattern FLIGHT, frontier + radius + check-out HOTEL (`OUTSIDE_PROVIDER_FRONTIER`).
     - UI kartu pantauan adaptif per tipe (Tiket / Hotel / Perjalanan lengkap).
     - Test `tests/api.watchlist.types.test.ts` (5): baseline FLIGHT terverifikasi, HOTEL + tolak frontier, stabilitas check HOTEL, validasi, default COMPLETE_TRIP. Total suite 113 test.
-- Next: M5-M7 (provider real, menunggu akses resmi), M8 (booking handoff), M9 (release gate).
+  - **M9 release gate (12 Agu 2026):** `npm run release-gate` menjalankan berurutan typecheck, lint, test, build, smoke mock tanpa kredensial, dan spec validator; keluar dengan PASS/FAIL. README diperbarui dengan opsi deployment (PaaS vs VPS) dan catatan bahwa GitHub Pages tidak dapat menjalankan backend (API + SQLite + worker + secret server-side). Total suite tetap 113 test.
+- Next: M5-M7 (provider real, menunggu akses resmi), M8 (booking handoff).
 
 ## Session: 2026-08-11
 

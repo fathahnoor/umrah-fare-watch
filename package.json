@@ -15,7 +15,8 @@
     "lint": "eslint src scripts tests",
     "test": "vitest run",
     "test:watch": "vitest",
-    "smoke": "tsx scripts/smoke-mock.ts"
+    "smoke": "tsx scripts/smoke-mock.ts",
+    "release-gate": "tsx scripts/release-gate.ts"
   },
   "dependencies": {
     "express": "^5.1.0",
