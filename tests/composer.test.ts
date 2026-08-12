@@ -203,6 +203,7 @@ function flightFixture(overrides: Partial<FlightObservation>): FlightObservation
     returnDepartureSaudiDate,
     outboundAirport,
     returnAirport,
+    origin: "CGK",
     departureLocalDate: overrides.departureLocalDate ?? "2029-12-05",
     returnLocalDate: returnDepartureSaudiDate,
     pattern,

@@ -74,7 +74,7 @@ function plan(overrides: PlanOverrides): TripPlan {
     outboundArrivalUtcInstant: "2029-11-30T23:05:00Z", outboundArrivalOffsetMinutes: 180,
     outboundArrivalSaudiDate: "2029-12-01", returnDepartureUtcInstant: "2029-12-09T18:45:00Z",
     returnDepartureOffsetMinutes: 180, returnDepartureSaudiDate: "2029-12-09",
-    outboundAirport: "JED", returnAirport: "JED", departureLocalDate: "2029-11-30",
+    outboundAirport: "JED", returnAirport: "JED", origin: "CGK", departureLocalDate: "2029-11-30",
     returnLocalDate: "2029-12-09", pattern: "ROUNDTRIP_JED" as const, originalAmountMinor: 4_000_000,
     originalCurrency: "IDR" as const, taxAmountMinor: 440_000, mandatoryFeeAmountMinor: 150_000,
     dueNowAmountMinor: 0, normalizedIdrAmountMinor: 4_000_000, fxRate: 1,

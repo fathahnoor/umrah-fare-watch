@@ -169,6 +169,7 @@ export interface FlightObservation {
   returnDepartureSaudiDate: string;
   outboundAirport: string;
   returnAirport: string;
+  origin: string;
   departureLocalDate: string;
   returnLocalDate: string;
   pattern: ItineraryPattern;
@@ -359,7 +360,7 @@ export interface TripPlanSummary {
   flight: {
     providerId: string;
     airline: string;
-    airports: { outbound: string; returnAirport: string };
+    airports: { origin: string; outbound: string; returnAirport: string };
     stops: number;
     durationMinutes: number;
     verificationStatus: VerificationStatus;

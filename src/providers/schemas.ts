@@ -54,6 +54,7 @@ export const flightObservationSchema = z.object({
   returnDepartureSaudiDate: localDate,
   outboundAirport: z.string().length(3),
   returnAirport: z.string().length(3),
+  origin: z.string().length(3),
   departureLocalDate: localDate,
   returnLocalDate: localDate,
   pattern: patternSchema,

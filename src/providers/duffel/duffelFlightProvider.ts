@@ -164,6 +164,7 @@ export function mapOfferToObservation(
     returnDepartureSaudiDate: candidate.returnLocalDate,
     outboundAirport: candidate.outboundAirport,
     returnAirport: candidate.returnAirport,
+    origin: candidate.origin,
     departureLocalDate: candidate.departureLocalDate,
     returnLocalDate: candidate.returnLocalDate,
     pattern: candidate.pattern,

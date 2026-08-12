@@ -227,3 +227,17 @@
 - Handoff entrypoints: `00_README.md`, `10_FREEBUFF_MASTER_PROMPT.md`, dan `12_HANDOFF_TO_FREEBUFF.md`.
 - Folder induk sudah dibersihkan dari helper browser temporer dan hanya berisi folder paket spesifikasi.
 - Tidak ada aplikasi yang dikembangkan pada fase ini. Implementasi dimulai oleh Freebuff melalui scaffold audit.
+
+## Dev Log (implementasi, ditambahkan oleh Freebuff)
+
+### 2026-08-12: Fix rute tampilan JED ke JED
+
+- **Masalah:** UI menampilkan rute "JED ke JED" karena observasi flight tidak menyimpan bandara asal (origin). `outboundAirport`/`returnAirport` hanya berisi bandara Saudi, jadi UI tidak punya informasi asal.
+- **Perbaikan:**
+  - Tambah field `origin` (bandara asal) di `FlightObservation` (domain), schema zod, dan semua adapter (mock, travelpayouts, duffel, serpapi).
+  - Composer dan handoff service meneruskan `origin` ke summary (`airports.origin`).
+  - UI menampilkan rute lengkap via `routeLabel`: `CGK → JED → CGK` (round trip) atau `CGK → JED, pulang MED → CGK` (open jaw).
+- **Fix tambahan:** `mockMode` di config kini turun dari `REAL_PROVIDERS_ENABLED` (health `/api/health` jujur melaporkan LIVE saat provider real aktif; `MOCK_MODE` masih bisa memaksa mock untuk test).
+- **Fix UI:** teks hero "Membandingkan provider aktif" kini dinamis dari `/api/providers/health` (menampilkan Google Flights + Google Hotels di mode live, bukan teks Mock yang hardcode).
+- **Verifikasi live:** pencarian CGK→JED mengembalikan 20 plan lengkap, semua menampilkan "Rute CGK → JED → CGK", hotel Makkah/Madinah tersedia, provider aktif Google Flights + Google Hotels.
+- Release gate PASS (tsc, lint, 132+ test, build, smoke, spec validator).

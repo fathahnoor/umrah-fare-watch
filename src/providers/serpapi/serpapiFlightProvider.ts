@@ -156,6 +156,7 @@ export function mapGoogleFlightsObservation(
     returnDepartureSaudiDate: returnDate,
     outboundAirport: candidate.outboundAirport,
     returnAirport: candidate.returnAirport,
+    origin: candidate.origin,
     departureLocalDate: candidate.departureLocalDate,
     returnLocalDate: returnDate,
     pattern: candidate.pattern,

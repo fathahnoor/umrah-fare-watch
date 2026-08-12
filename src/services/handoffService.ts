@@ -233,7 +233,7 @@ function candidateFromObservation(plan: TripPlan): FlightCandidate {
   return {
     id: f.candidateId,
     providerId: f.providerId,
-    origin: f.segments[0]?.fromAirport ?? f.outboundAirport,
+    origin: f.origin ?? f.segments[0]?.fromAirport ?? f.outboundAirport,
     outboundAirport: f.outboundAirport,
     returnAirport: f.returnAirport,
     departureLocalDate: f.departureLocalDate,

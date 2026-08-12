@@ -305,7 +305,7 @@ export function toPlanSummary(plan: TripPlan, input: TripSearchInput): TripPlanS
     flight: {
       providerId: flight.providerId,
       airline: flight.segments[0]?.carrier ?? "Mock Air",
-      airports: { outbound: flight.outboundAirport, returnAirport: flight.returnAirport },
+      airports: { origin: flight.origin, outbound: flight.outboundAirport, returnAirport: flight.returnAirport },
       stops: flight.stopCount,
       durationMinutes: flight.durationMinutes,
       verificationStatus: flight.verificationStatus,

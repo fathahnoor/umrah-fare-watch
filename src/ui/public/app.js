@@ -281,6 +281,34 @@ function renderServerErrors(errors) {
 
 /* ---------- rendering ---------- */
 
+const PROVIDER_NAMES = {
+  "mock-flight": "Mock Flight",
+  "mock-hotel": "Mock Hotel",
+  "serpapi-flights": "Google Flights",
+  "serpapi-hotels": "Google Hotels",
+  travelpayouts: "Travelpayouts",
+  "duffel-flights": "Duffel Flights",
+  "duffel-stays": "Duffel Stays",
+};
+
+async function updateProviderHero() {
+  const line = document.querySelector(".provider-line");
+  if (!line) return;
+  try {
+    const res = await fetch("/api/providers/health");
+    if (!res.ok) return;
+    const data = await res.json();
+    const active = (data.providers || []).filter((p) => p.enabled);
+    if (!active.length) return;
+    const names = active.map((p) => PROVIDER_NAMES[p.id] || p.id);
+    const anyReal = active.some((p) => p.mode && p.mode !== "MOCK");
+    const modeLabel = anyReal ? "data live dari provider nyata" : "mode demo, data sintetis";
+    line.innerHTML = `Membandingkan provider aktif saat ini: <strong>${names.map(esc).join("</strong> dan <strong>")}</strong> (${esc(modeLabel)}). Lihat <a href="#tentang">cakupan</a>.`;
+  } catch (_err) {
+    // Biarkan teks statis default bila server tidak terjangkau.
+  }
+}
+
 function badge(state, label) {
   return `<span class="status-badge" data-state="${esc(state)}">${esc(label)}</span>`;
 }
@@ -291,15 +319,6 @@ function renderResults(data) {
   lastResults = data;
 
   const header = $("#results-header");
-  const PROVIDER_NAMES = {
-    "mock-flight": "Mock Flight",
-    "mock-hotel": "Mock Hotel",
-    "serpapi-flights": "Google Flights",
-    "serpapi-hotels": "Google Hotels",
-    travelpayouts: "Travelpayouts",
-    "duffel-flights": "Duffel Flights",
-    "duffel-stays": "Duffel Stays",
-  };
   const active = (data.activeProviders || []).filter((p) => p.enabled);
   const providers = active.map((p) => PROVIDER_NAMES[p.id] || p.id).join(", ");
   const anyReal = active.some((p) => p.mode && p.mode !== "MOCK");
@@ -427,7 +446,7 @@ function planCard(plan, partial) {
     <div class="detail-block">
       <h4>Tiket: ${esc(f.airline)}</h4>
       <ul>
-        <li>Rute ${esc(f.airports.outbound)} ke ${esc(f.airports.returnAirport)} (${esc(plan.pattern.replace(/_/g, " "))}), ${esc(f.stops)} transit, durasi ${esc(formatMinutes(f.durationMinutes))}</li>
+        <li>Rute ${esc(routeLabel(f.airports))} (${esc(plan.pattern.replace(/_/g, " "))}), ${esc(f.stops)} transit, durasi ${esc(formatMinutes(f.durationMinutes))}</li>
         <li>Verifikasi: ${esc(f.verificationStatus)}, terakhir diverifikasi ${esc(formatDateTime(f.observedAt))}</li>
         <li>Kedaluwarsa: ${esc(formatDateTime(f.expiresAt))}</li>
       </ul>
@@ -489,6 +508,17 @@ function formatMinutes(minutes) {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return h > 0 ? `${h} j ${m} m` : `${m} m`;
+}
+
+/** Full route label, e.g. CGK → JED → CGK (round trip) or
+ *  CGK → JED, pulang MED → CGK (open jaw). The origin is the departure city. */
+function routeLabel(airports) {
+  const origin = airports.origin || "?";
+  const outbound = airports.outbound || "?";
+  const ret = airports.returnAirport || "?";
+  return outbound === ret
+    ? `${origin} → ${outbound} → ${origin}`
+    : `${origin} → ${outbound}, pulang ${ret} → ${origin}`;
 }
 
 /* ---------- sort + filter on results ---------- */
@@ -1038,6 +1068,7 @@ function init() {
 
   refreshWatchlist();
   loadCoverageCalendar();
+  updateProviderHero();
 }
 
 /* ---------- auth actions ---------- */
