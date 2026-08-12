@@ -1,0 +1,33 @@
+{
+  "name": "umrah-fare-watch",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Umrah Fare Watch - find the lowest observed complete Umrah trip total from active authorized providers (mock-first MVP).",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "dev": "tsx watch src/api/server.ts",
+    "start": "node dist/api/server.js",
+    "build": "tsc -p tsconfig.build.json && node scripts/copy-ui.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src scripts tests",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "smoke": "tsx scripts/smoke-mock.ts"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^24.0.0",
+    "eslint": "^9.30.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0",
+    "typescript-eslint": "^8.30.0",
+    "vitest": "^3.1.0"
+  }
+}
