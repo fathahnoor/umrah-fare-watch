@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { addDays } from "../src/domain/dates.js";
 import { TEST_NOW, baseInput, withServer } from "./helpers.js";
 
 describe("coverage scheduler + calendar (02_LONG_HORIZON_MONITORING)", () => {

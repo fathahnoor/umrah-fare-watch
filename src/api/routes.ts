@@ -3,6 +3,7 @@ import { Router } from "express";
 import type { Request, Response } from "express";
 import type { AppConfig } from "../config.js";
 import { addDays, todayLocalDate } from "../domain/dates.js";
+import type { AuthService } from "../services/authService.js";
 import type { CoverageService } from "../services/coverageService.js";
 import type { SearchService } from "../services/searchService.js";
 import type { WatchlistService } from "../services/watchlistService.js";
@@ -11,6 +12,7 @@ export interface RouteDeps {
   searchService: SearchService;
   watchlistService: WatchlistService;
   coverageService: CoverageService;
+  authService: AuthService;
   config: AppConfig;
   now: () => Date;
 }
@@ -30,23 +32,25 @@ function calendarWindow(
   return { start, end };
 }
 
-function watchlistToken(req: Request): string | null {
-  const token = req.headers["x-watchlist-token"];
+function sessionToken(req: Request): string | null {
+  const token = req.headers["x-session-token"];
   return typeof token === "string" && token.trim() !== "" ? token.trim() : null;
 }
 
-function requireWatchlistToken(req: Request, res: Response): string | null {
-  const token = watchlistToken(req);
-  if (token == null) {
+/** Resolve the session to a user id; writes 401 when missing or expired. */
+function requireUser(deps: RouteDeps, req: Request, res: Response): string | null {
+  const token = sessionToken(req);
+  const userId = deps.authService.authenticate(token, deps.now());
+  if (userId == null) {
     res.status(401).json({
       code: "AUTH_REQUIRED",
-      message: "Token pantauan (X-Watchlist-Token) diperlukan",
+      message: "Sesi tidak valid atau sudah kedaluwarsa",
       retryable: false,
       correlationId: res.locals.correlationId,
     });
     return null;
   }
-  return token;
+  return userId;
 }
 
 export function createRoutes(deps: RouteDeps): Router {
@@ -93,10 +97,53 @@ export function createRoutes(deps: RouteDeps): Router {
     res.json(outcome.response);
   });
 
+  router.post("/auth/register", (req: Request, res: Response) => {
+    const outcome = deps.authService.register(req.body?.email, req.body?.password, deps.now());
+    if (!outcome.ok) {
+      const conflict = outcome.issues.some((i) => i.code === "CONFLICT");
+      res.status(conflict ? 409 : 400).json({
+        code: conflict ? "CONFLICT" : "VALIDATION_ERROR",
+        errors: outcome.issues,
+        retryable: false,
+        correlationId: res.locals.correlationId,
+      });
+      return;
+    }
+    res.status(201).json(outcome.data);
+  });
+
+  router.post("/auth/login", (req: Request, res: Response) => {
+    const outcome = deps.authService.login(req.body?.email, req.body?.password, deps.now());
+    if (!outcome.ok) {
+      res.status(401).json({
+        code: "INVALID_CREDENTIALS",
+        errors: outcome.issues,
+        retryable: false,
+        correlationId: res.locals.correlationId,
+      });
+      return;
+    }
+    res.json(outcome.data);
+  });
+
+  router.post("/auth/logout", (req: Request, res: Response) => {
+    deps.authService.logout(sessionToken(req));
+    res.json({ ok: true });
+  });
+
+  router.get("/auth/me", (req: Request, res: Response) => {
+    const me = deps.authService.me(sessionToken(req), deps.now());
+    if (!me) {
+      res.status(401).json({ code: "AUTH_REQUIRED", message: "Belum masuk", retryable: false, correlationId: res.locals.correlationId });
+      return;
+    }
+    res.json({ user: me });
+  });
+
   router.post("/watchlist", async (req: Request, res: Response) => {
-    const token = requireWatchlistToken(req, res);
-    if (token == null) return;
-    const outcome = await deps.watchlistService.create(token, req.body, deps.now());
+    const userId = requireUser(deps, req, res);
+    if (userId == null) return;
+    const outcome = await deps.watchlistService.create(userId, req.body, deps.now());
     if (!outcome.ok) {
       res.status(outcome.issues.some((i) => i.code === "NOT_FOUND") ? 404 : 400).json({
         code: outcome.issues.some((i) => i.code === "NOT_FOUND") ? "NOT_FOUND" : "VALIDATION_ERROR",
@@ -110,15 +157,15 @@ export function createRoutes(deps: RouteDeps): Router {
   });
 
   router.get("/watchlist", (req: Request, res: Response) => {
-    const token = requireWatchlistToken(req, res);
-    if (token == null) return;
-    res.json({ watchlists: deps.watchlistService.list(token) });
+    const userId = requireUser(deps, req, res);
+    if (userId == null) return;
+    res.json({ watchlists: deps.watchlistService.list(userId) });
   });
 
   router.delete("/watchlist/:id", (req: Request, res: Response) => {
-    const token = requireWatchlistToken(req, res);
-    if (token == null) return;
-    const removed = deps.watchlistService.remove(token, req.params.id as string);
+    const userId = requireUser(deps, req, res);
+    if (userId == null) return;
+    const removed = deps.watchlistService.remove(userId, req.params.id as string);
     if (!removed) {
       res.status(404).json({
         code: "NOT_FOUND",
@@ -132,9 +179,9 @@ export function createRoutes(deps: RouteDeps): Router {
   });
 
   router.post("/watchlist/:id/check", async (req: Request, res: Response) => {
-    const token = requireWatchlistToken(req, res);
-    if (token == null) return;
-    const outcome = await deps.watchlistService.check(token, req.params.id as string, deps.now());
+    const userId = requireUser(deps, req, res);
+    if (userId == null) return;
+    const outcome = await deps.watchlistService.check(userId, req.params.id as string, deps.now());
     if (!outcome.ok) {
       res.status(404).json({
         code: "NOT_FOUND",
@@ -148,11 +195,11 @@ export function createRoutes(deps: RouteDeps): Router {
   });
 
   router.get("/alerts", (req: Request, res: Response) => {
-    const token = requireWatchlistToken(req, res);
-    if (token == null) return;
+    const userId = requireUser(deps, req, res);
+    if (userId == null) return;
     const limitRaw = Number.parseInt(String(req.query.limit ?? "20"), 10);
     const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 50) : 20;
-    res.json({ alerts: deps.watchlistService.alerts(token, limit) });
+    res.json({ alerts: deps.watchlistService.alerts(userId, limit) });
   });
 
   router.get("/providers/health", async (_req: Request, res: Response) => {

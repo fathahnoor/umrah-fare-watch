@@ -6,9 +6,11 @@ import type { NextFunction, Request, Response } from "express";
 import { loadConfig, type AppConfig } from "../config.js";
 import { createMockRegistry, type ProviderRegistry } from "../providers/registry.js";
 import { ProviderError } from "../providers/types.js";
+import { AuthService } from "../services/authService.js";
 import { CoverageService } from "../services/coverageService.js";
 import { SearchService } from "../services/searchService.js";
 import { WatchlistService } from "../services/watchlistService.js";
+import { SqliteAuthRepo, type AuthRepo } from "../store/auth.js";
 import { SqliteCoverageRepo, type CoverageRepo } from "../store/coverage.js";
 import { openDb } from "../store/db.js";
 import { SqliteStore, type ObservationStore } from "../store/repositories.js";
@@ -20,6 +22,7 @@ export interface AppDeps {
   store: ObservationStore;
   watchlistRepo: WatchlistRepo;
   coverageRepo: CoverageRepo;
+  authRepo: AuthRepo;
   config: AppConfig;
   now: () => Date;
   searchService?: SearchService;
@@ -33,6 +36,7 @@ export function createApp(deps: AppDeps): express.Express {
     deps.searchService ??
     new SearchService(deps.registry, deps.store, deps.config, coverageRepo);
   const coverageService = new CoverageService(deps.registry, coverageRepo, deps.config);
+  const authService = new AuthService(deps.authRepo, deps.config.sessionTtlDays);
   const watchlistService =
     deps.watchlistService ??
     new WatchlistService(searchService, deps.watchlistRepo, deps.config);
@@ -68,6 +72,7 @@ export function createApp(deps: AppDeps): express.Express {
       searchService,
       watchlistService,
       coverageService,
+      authService,
       config: deps.config,
       now: deps.now,
     }),
@@ -126,6 +131,7 @@ function main(): void {
   const store = new SqliteStore(db);
   const watchlistRepo = new SqliteWatchlistRepo(db);
   const coverageRepo = new SqliteCoverageRepo(db);
+  const authRepo = new SqliteAuthRepo(db);
   const registry = createMockRegistry(config.mockHotelFrontierDays);
   const searchService = new SearchService(registry, store, config, coverageRepo);
   const watchlistService = new WatchlistService(searchService, watchlistRepo, config);
@@ -135,6 +141,7 @@ function main(): void {
     store,
     watchlistRepo,
     coverageRepo,
+    authRepo,
     config,
     now: () => new Date(),
     searchService,

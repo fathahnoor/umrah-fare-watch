@@ -19,6 +19,7 @@ export interface AppConfig {
   flightTierBHours: number;
   flightTierCHours: number;
   coverageWorkerIntervalMs: number;
+  sessionTtlDays: number;
   alertCooldownHours: number;
   materialDropPercent: number;
   requestCacheTtlMs: number;
@@ -62,6 +63,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     flightTierBHours: intFromEnv(env, "FLIGHT_TIER_B_HOURS", 48, 1, 336),
     flightTierCHours: intFromEnv(env, "FLIGHT_TIER_C_HOURS", 84, 1, 504),
     coverageWorkerIntervalMs: intFromEnv(env, "COVERAGE_WORKER_INTERVAL_MS", 600_000, 10_000, 3_600_000),
+    sessionTtlDays: intFromEnv(env, "SESSION_TTL_DAYS", 30, 1, 365),
     alertCooldownHours: intFromEnv(env, "ALERT_COOLDOWN_HOURS", 24, 1, 720),
     materialDropPercent: intFromEnv(env, "MATERIAL_DROP_PERCENT", 3, 1, 50),
     requestCacheTtlMs: intFromEnv(env, "REQUEST_CACHE_TTL_MS", 15 * 60_000, 1_000, 86_400_000),

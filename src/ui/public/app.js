@@ -685,29 +685,63 @@ function renderCoverageCalendar(days) {
 
 /* ---------- watchlist + alerts ---------- */
 
-const WATCHLIST_TOKEN_KEY = "ufw_watchlist_token";
+const SESSION_TOKEN_KEY = "ufw_session_token";
 
-function watchlistToken() {
-  let token = localStorage.getItem(WATCHLIST_TOKEN_KEY);
-  if (!token) {
-    token = (crypto.randomUUID ? crypto.randomUUID() : `dev-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-    localStorage.setItem(WATCHLIST_TOKEN_KEY, token);
-  }
-  return token;
+function sessionToken() {
+  return localStorage.getItem(SESSION_TOKEN_KEY) || null;
 }
 
-function watchlistHeaders(extra = {}) {
-  return { "Content-Type": "application/json", "X-Watchlist-Token": watchlistToken(), ...extra };
+function sessionHeaders(extra = {}) {
+  const headers = { "Content-Type": "application/json", ...extra };
+  const token = sessionToken();
+  if (token) headers["X-Session-Token"] = token;
+  return headers;
+}
+
+async function refreshAuth() {
+  const token = sessionToken();
+  const authBox = $("#auth-box");
+  const authInfo = $("#auth-info");
+  if (!token) {
+    authBox.hidden = false;
+    authInfo.hidden = true;
+    return false;
+  }
+  try {
+    const res = await fetch("/api/auth/me", { headers: sessionHeaders() });
+    if (res.status === 401) {
+      localStorage.removeItem(SESSION_TOKEN_KEY);
+      authBox.hidden = false;
+      authInfo.hidden = true;
+      return false;
+    }
+    const body = await res.json();
+    authBox.hidden = true;
+    authInfo.hidden = false;
+    $("#auth-email").textContent = body.user.email;
+    return true;
+  } catch (_err) {
+    authBox.hidden = false;
+    authInfo.hidden = true;
+    return false;
+  }
 }
 
 async function refreshWatchlist() {
   const listWrap = $("#watchlist-list");
   const alertsWrap = $("#alerts-list");
   const status = $("#watchlist-status");
+  const loggedIn = await refreshAuth();
+  if (!loggedIn) {
+    listWrap.innerHTML = `<p class="results-sub">Daftar atau masuk dulu untuk menyimpan dan melihat pantauan.</p>`;
+    alertsWrap.innerHTML = `<p class="results-sub">Belum ada alert harga.</p>`;
+    status.textContent = "";
+    return;
+  }
   try {
     const [wlRes, alertsRes] = await Promise.all([
-      fetch("/api/watchlist", { headers: watchlistHeaders() }),
-      fetch("/api/alerts", { headers: watchlistHeaders() }),
+      fetch("/api/watchlist", { headers: sessionHeaders() }),
+      fetch("/api/alerts", { headers: sessionHeaders() }),
     ]);
     if (!wlRes.ok || !alertsRes.ok) {
       status.textContent = "Pantauan tidak dapat dimuat.";
@@ -772,7 +806,7 @@ async function watchPlan(planId) {
   try {
     const res = await fetch("/api/watchlist", {
       method: "POST",
-      headers: watchlistHeaders(),
+      headers: sessionHeaders(),
       body: JSON.stringify({ input: lastResults.constraints, label }),
     });
     if (!res.ok) {
@@ -798,7 +832,7 @@ async function checkWatchlist(id) {
   try {
     const res = await fetch(`/api/watchlist/${encodeURIComponent(id)}/check`, {
       method: "POST",
-      headers: watchlistHeaders(),
+      headers: sessionHeaders(),
     });
     const body = await res.json();
     if (!res.ok) {
@@ -821,7 +855,7 @@ async function deleteWatchlist(id) {
   try {
     const res = await fetch(`/api/watchlist/${encodeURIComponent(id)}`, {
       method: "DELETE",
-      headers: watchlistHeaders(),
+      headers: sessionHeaders(),
     });
     if (res.ok) {
       await refreshWatchlist();
@@ -866,6 +900,18 @@ function init() {
     document.getElementById(id).addEventListener("change", updateNightsSummary);
   });
   updateNightsSummary();
+
+  $("#authRegister").addEventListener("click", () => {
+    authRequest("/api/auth/register", { email: $("#authEmail").value, password: $("#authPassword").value });
+  });
+  $("#authLogin").addEventListener("click", () => {
+    authRequest("/api/auth/login", { email: $("#authEmail").value, password: $("#authPassword").value });
+  });
+  $("#authLogout").addEventListener("click", async () => {
+    await fetch("/api/auth/logout", { method: "POST", headers: sessionHeaders() });
+    localStorage.removeItem(SESSION_TOKEN_KEY);
+    await refreshWatchlist();
+  });
 
   $("#search-form").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -959,6 +1005,45 @@ function init() {
 
   refreshWatchlist();
   loadCoverageCalendar();
+}
+
+/* ---------- auth actions ---------- */
+
+async function authRequest(path, body) {
+  const status = $("#auth-status");
+  status.textContent = "";
+  try {
+    const res = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      status.textContent = data.errors && data.errors[0] ? data.errors[0].message : data.message || "Gagal memproses.";
+      return false;
+    }
+    if (data.token) {
+      localStorage.setItem(SESSION_TOKEN_KEY, data.token);
+    } else if (path.endsWith("/register")) {
+      // Register returns no session; sign in immediately with the same input.
+      const loginRes = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (loginRes.ok) {
+        const loginData = await loginRes.json();
+        localStorage.setItem(SESSION_TOKEN_KEY, loginData.token);
+      }
+    }
+    await refreshWatchlist();
+    status.textContent = path.endsWith("/login") ? "Berhasil masuk." : "Akun dibuat. Anda sudah masuk.";
+    return true;
+  } catch (_err) {
+    status.textContent = "Gagal terhubung ke server, coba lagi.";
+    return false;
+  }
 }
 
 document.addEventListener("DOMContentLoaded", init);

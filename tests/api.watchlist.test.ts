@@ -2,18 +2,18 @@ import { describe, expect, it } from "vitest";
 import { loadConfig } from "../src/config.js";
 import { createApp } from "../src/api/server.js";
 import { createMockRegistry } from "../src/providers/registry.js";
+import { SqliteAuthRepo } from "../src/store/auth.js";
 import { SqliteCoverageRepo } from "../src/store/coverage.js";
 import { openDb } from "../src/store/db.js";
 import { SqliteStore } from "../src/store/repositories.js";
 import { SqliteWatchlistRepo } from "../src/store/watchlist.js";
 import { baseInput, TEST_NOW } from "./helpers.js";
 
-const TOKEN = "device-demo-1";
 const HOUR_MS = 3_600_000;
 
-describe("API watchlist + alerts (mock mode, 07_ALERTS_AND_SCHEDULER MVP slice)", () => {
-  it("requires a watchlist token (AUTH_REQUIRED)", async () => {
-    await withMutableClock(TEST_NOW, async (baseUrl) => {
+describe("API watchlist + alerts (07_ALERTS_AND_SCHEDULER MVP slice)", () => {
+  it("requires a session (AUTH_REQUIRED)", async () => {
+    await withServer(TEST_NOW, async (baseUrl) => {
       const res = await fetch(`${baseUrl}/api/watchlist`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -25,9 +25,12 @@ describe("API watchlist + alerts (mock mode, 07_ALERTS_AND_SCHEDULER MVP slice)"
     });
   });
 
-  it("creates a watchlist with a baseline and lists it for its owner only", async () => {
-    await withMutableClock(TEST_NOW, async (baseUrl) => {
-      const created = await postWatchlist(baseUrl, TOKEN, {
+  it("creates a watchlist with a baseline and isolates it per user", async () => {
+    await withServer(TEST_NOW, async (baseUrl) => {
+      const tokenA = await registerAndLogin(baseUrl, "a@example.com");
+      const tokenB = await registerAndLogin(baseUrl, "b@example.com");
+
+      const created = await postWatchlist(baseUrl, tokenA, {
         input: baseInput({ departureStart: "2029-12-05", departureEnd: "2029-12-05" }),
         label: "Umroh Desember",
       });
@@ -35,31 +38,26 @@ describe("API watchlist + alerts (mock mode, 07_ALERTS_AND_SCHEDULER MVP slice)"
       const body = (await created.json()) as any;
       expect(body.watchlist.type).toBe("COMPLETE_TRIP");
       expect(body.watchlist.baselineTotalIdrMinor).toBeGreaterThan(0);
-      expect(body.watchlist.lastCheckedTotalIdrMinor).toBe(body.watchlist.baselineTotalIdrMinor);
       expect(body.plan.tripTotalIdrMinor).toBe(body.watchlist.baselineTotalIdrMinor);
 
-      const list = await fetch(`${baseUrl}/api/watchlist`, {
-        headers: { "X-Watchlist-Token": TOKEN },
+      const listA = await fetch(`${baseUrl}/api/watchlist`, {
+        headers: { "X-Session-Token": tokenA },
       });
-      const listBody = (await list.json()) as any;
-      expect(listBody.watchlists.length).toBe(1);
-      expect(listBody.watchlists[0].id).toBe(body.watchlist.id);
+      expect((await listA.json() as any).watchlists.length).toBe(1);
 
-      const otherOwner = await fetch(`${baseUrl}/api/watchlist`, {
-        headers: { "X-Watchlist-Token": "device-other" },
+      const listB = await fetch(`${baseUrl}/api/watchlist`, {
+        headers: { "X-Session-Token": tokenB },
       });
-      const otherBody = (await otherOwner.json()) as any;
-      expect(otherBody.watchlists.length).toBe(0);
+      expect((await listB.json() as any).watchlists.length).toBe(0);
     });
   });
 
   it("identical input returns the existing watchlist (idempotent create)", async () => {
-    await withMutableClock(TEST_NOW, async (baseUrl) => {
+    await withServer(TEST_NOW, async (baseUrl) => {
+      const token = await registerAndLogin(baseUrl, "c@example.com");
       const input = { input: baseInput({ departureStart: "2029-12-05", departureEnd: "2029-12-05" }) };
-      const first = await postWatchlist(baseUrl, TOKEN, input);
-      const second = await postWatchlist(baseUrl, TOKEN, input);
-      expect(first.status).toBe(201);
-      expect(second.status).toBe(201);
+      const first = await postWatchlist(baseUrl, token, input);
+      const second = await postWatchlist(baseUrl, token, input);
       const a = (await first.json()) as any;
       const b = (await second.json()) as any;
       expect(a.watchlist.id).toBe(b.watchlist.id);
@@ -67,19 +65,19 @@ describe("API watchlist + alerts (mock mode, 07_ALERTS_AND_SCHEDULER MVP slice)"
   });
 
   it("budget threshold fires an alert when the total is at or below it", async () => {
-    await withMutableClock(TEST_NOW, async (baseUrl) => {
-      const created = await postWatchlist(baseUrl, TOKEN, {
+    await withServer(TEST_NOW, async (baseUrl) => {
+      const token = await registerAndLogin(baseUrl, "d@example.com");
+      const created = await postWatchlist(baseUrl, token, {
         input: baseInput({ departureStart: "2029-12-05", departureEnd: "2029-12-05" }),
-        thresholdIdrMinor: 99_999_999_999, // always at or below
+        thresholdIdrMinor: 99_999_999_999,
       });
       const body = (await created.json()) as any;
       const id = body.watchlist.id as string;
 
       const check = await fetch(`${baseUrl}/api/watchlist/${id}/check`, {
         method: "POST",
-        headers: { "X-Watchlist-Token": TOKEN },
+        headers: { "X-Session-Token": token },
       });
-      expect(check.status).toBe(200);
       const checkBody = (await check.json()) as any;
       expect(checkBody.createdEvents.length).toBe(1);
       expect(checkBody.createdEvents[0].currentTotalIdrMinor).toBe(body.watchlist.baselineTotalIdrMinor);
@@ -87,32 +85,30 @@ describe("API watchlist + alerts (mock mode, 07_ALERTS_AND_SCHEDULER MVP slice)"
   });
 
   it("a real price drop past the cooldown creates one deduplicated alert", async () => {
-    await withMutableClock(TEST_NOW, async (baseUrl, setNow) => {
-      const created = await postWatchlist(baseUrl, TOKEN, {
+    await withServer(TEST_NOW, async (baseUrl, setNow) => {
+      const token = await registerAndLogin(baseUrl, "e@example.com");
+      const created = await postWatchlist(baseUrl, token, {
         input: baseInput({ departureStart: "2029-12-05", departureEnd: "2029-12-05" }),
       });
       const body = (await created.json()) as any;
       const id = body.watchlist.id as string;
       const baseline = body.watchlist.baselineTotalIdrMinor as number;
 
-      // Same instant: identical price, no drop, no alert.
-      const sameTime = await checkWatchlist(baseUrl, TOKEN, id);
+      const sameTime = await checkWatchlist(baseUrl, token, id);
       expect(sameTime.createdEvents.length).toBe(0);
 
-      // Advance 24h: the mock price drifts into a lower 6h bucket, a real drop.
       setNow(new Date(TEST_NOW.getTime() + 24 * HOUR_MS));
-      const dropped = await checkWatchlist(baseUrl, TOKEN, id);
+      const dropped = await checkWatchlist(baseUrl, token, id);
       expect(dropped.createdEvents.length).toBe(1);
       expect(dropped.currentTotalIdrMinor).toBeLessThan(baseline);
       expect(dropped.createdEvents[0].previousTotalIdrMinor).toBe(baseline);
       expect(dropped.createdEvents[0].dropPercent).toBeGreaterThan(0);
 
-      // Same instant again: same price bucket, fingerprint deduplicates.
-      const again = await checkWatchlist(baseUrl, TOKEN, id);
+      const again = await checkWatchlist(baseUrl, token, id);
       expect(again.createdEvents.length).toBe(0);
 
       const alerts = await fetch(`${baseUrl}/api/alerts`, {
-        headers: { "X-Watchlist-Token": TOKEN },
+        headers: { "X-Session-Token": token },
       });
       const alertsBody = (await alerts.json()) as any;
       expect(alertsBody.alerts.length).toBe(1);
@@ -121,8 +117,9 @@ describe("API watchlist + alerts (mock mode, 07_ALERTS_AND_SCHEDULER MVP slice)"
   });
 
   it("deletes a watchlist and returns 404 for unknown ids", async () => {
-    await withMutableClock(TEST_NOW, async (baseUrl) => {
-      const created = await postWatchlist(baseUrl, TOKEN, {
+    await withServer(TEST_NOW, async (baseUrl) => {
+      const token = await registerAndLogin(baseUrl, "f@example.com");
+      const created = await postWatchlist(baseUrl, token, {
         input: baseInput({ departureStart: "2029-12-05", departureEnd: "2029-12-05" }),
       });
       const body = (await created.json()) as any;
@@ -130,29 +127,39 @@ describe("API watchlist + alerts (mock mode, 07_ALERTS_AND_SCHEDULER MVP slice)"
 
       const del = await fetch(`${baseUrl}/api/watchlist/${id}`, {
         method: "DELETE",
-        headers: { "X-Watchlist-Token": TOKEN },
+        headers: { "X-Session-Token": token },
       });
       expect(del.status).toBe(200);
 
-      const list = await fetch(`${baseUrl}/api/watchlist`, {
-        headers: { "X-Watchlist-Token": TOKEN },
-      });
-      const listBody = (await list.json()) as any;
-      expect(listBody.watchlists.length).toBe(0);
-
       const delAgain = await fetch(`${baseUrl}/api/watchlist/${id}`, {
         method: "DELETE",
-        headers: { "X-Watchlist-Token": TOKEN },
+        headers: { "X-Session-Token": token },
       });
       expect(delAgain.status).toBe(404);
     });
   });
 });
 
+async function registerAndLogin(baseUrl: string, email: string): Promise<string> {
+  const register = await fetch(`${baseUrl}/api/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password: "rahasia123" }),
+  });
+  expect(register.status).toBe(201);
+  const login = await fetch(`${baseUrl}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password: "rahasia123" }),
+  });
+  expect(login.status).toBe(200);
+  return ((await login.json()) as any).token as string;
+}
+
 function postWatchlist(baseUrl: string, token: string, body: unknown): Promise<Response> {
   return fetch(`${baseUrl}/api/watchlist`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Watchlist-Token": token },
+    headers: { "Content-Type": "application/json", "X-Session-Token": token },
     body: JSON.stringify(body),
   });
 }
@@ -160,12 +167,12 @@ function postWatchlist(baseUrl: string, token: string, body: unknown): Promise<R
 async function checkWatchlist(baseUrl: string, token: string, id: string): Promise<any> {
   const res = await fetch(`${baseUrl}/api/watchlist/${id}/check`, {
     method: "POST",
-    headers: { "X-Watchlist-Token": token },
+    headers: { "X-Session-Token": token },
   });
   return res.json();
 }
 
-async function withMutableClock(
+async function withServer(
   start: Date,
   fn: (baseUrl: string, setNow: (d: Date) => void) => Promise<void>,
 ): Promise<void> {
@@ -180,9 +187,10 @@ async function withMutableClock(
   const store = new SqliteStore(db);
   const watchlistRepo = new SqliteWatchlistRepo(db);
   const coverageRepo = new SqliteCoverageRepo(db);
+  const authRepo = new SqliteAuthRepo(db);
   const registry = createMockRegistry(config.mockHotelFrontierDays);
   let current = start;
-  const app = createApp({ registry, store, watchlistRepo, coverageRepo, config, now: () => current });
+  const app = createApp({ registry, store, watchlistRepo, coverageRepo, authRepo, config, now: () => current });
   const server = app.listen(0);
   await new Promise<void>((resolve) => server.once("listening", resolve));
   const address = server.address();

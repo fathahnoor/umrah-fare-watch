@@ -35,7 +35,12 @@
     - API: `POST /api/coverage/scan` (trigger admin) dan `GET /api/coverage/calendar?start&end&months` (default 12 bulan). Worker di `main()`: scan awal saat startup + interval `COVERAGE_WORKER_INTERVAL_MS`.
     - UI: blok "Cakupan flight & hotel (365 hari)" di seksi Kalender harga, grid bulanan dengan label F/H (Tersedia, Belum, Frontier, Sibuk, Tanpa hasil) bukan warna saja; klik tanggal flight tersedia langsung mencari.
     - Test `tests/domain.coveragePlan.test.ts` (5) + `tests/api.coverage.test.ts` (5): boundary tier, plan 370 hari, jitter deterministik, scan 370 flight + 80 frontier, kalender 365 hari, hotel day 331 NOT_YET_SEARCHABLE bukan NO_RESULT, coverage dari user search. Total suite 102 test.
-- Next: akun pengguna (auth scrypt + session) untuk Pantauan Saya, tipe watchlist FLIGHT/HOTEL + matching rule, M5-M7 (provider real, menunggu akses), M8 (booking handoff), M9 (release gate).
+  - **Akun pengguna + session (12 Agu 2026):**
+    - Tabel `users` (email unique NOCASE, password_hash + password_salt scrypt via node:crypto, tidak ada plaintext) dan `sessions` (token acak 32 byte, expiry, FK ke user). Repo `SqliteAuthRepo`, service `AuthService` (register, login, logout, authenticate, me; `SESSION_TTL_DAYS` default 30).
+    - Endpoint: `POST /api/auth/register|login|logout`, `GET /api/auth/me`. Watchlist dan alerts kini wajib session (`X-Session-Token`) lewat helper `requireUser`; token perangkat lama diganti akun penuh sesuai spek "Pantauan Saya membutuhkan authentication".
+    - UI: form daftar/masuk di seksi Pantauan Saya, auto-login setelah daftar, info akun + tombol Keluar, status pesan jelas.
+    - Test `tests/api.auth.test.ts` (6): register + duplikat 409, validasi email/password, login + /me, password salah 401, logout invalidasi session, proteksi watchlist. `tests/api.watchlist.test.ts` dimigrasi ke session. Total suite 108 test.
+- Next: tipe watchlist FLIGHT/HOTEL + matching rule spek 07, M5-M7 (provider real, menunggu akses), M8 (booking handoff), M9 (release gate).
 
 ## Session: 2026-08-11
 

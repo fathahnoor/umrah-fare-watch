@@ -10,9 +10,9 @@ import {
   isCoverageDue,
   tierIntervalHours,
 } from "../domain/coveragePlan.js";
-import { addDays, todayLocalDate } from "../domain/dates.js";
+import { addDays } from "../domain/dates.js";
 import { hotelCheckInState } from "../domain/horizons.js";
-import type { AvailabilityState, City, CoverageRecord, ItineraryPattern } from "../domain/types.js";
+import type { AvailabilityState, CoverageRecord, ItineraryPattern } from "../domain/types.js";
 import type { ProviderRegistry } from "../providers/registry.js";
 import type { CoverageRepo } from "../store/coverage.js";
 
@@ -126,7 +126,6 @@ export class CoverageService {
     }
     const frontier = await hotelProvider.getFrontier(now);
     const frontierDate = frontier.checkInFrontierDate;
-    const today = todayLocalDate(now);
     const plan = flightCoveragePlan(now, this.config);
     const scanRunId = `frontier-${randomUUID()}`;
     let hotelFrontierMarked = 0;

@@ -225,7 +225,26 @@
     <section id="pantauan" class="section-block" aria-labelledby="pantauan-title">
       <div class="container">
         <h2 id="pantauan-title">Pantauan Saya</h2>
-        <p>Simpan kombinasi perjalanan lalu terima <strong>alert harga in-app</strong> ketika total turun atau mencapai budget Anda. Data tersimpan per perangkat (token lokal); akun penuh menyusul di milestone berikutnya.</p>
+        <p>Simpan kombinasi perjalanan lalu terima <strong>alert harga in-app</strong> ketika total turun atau mencapai budget Anda. Pantauan tersimpan di akun Anda.</p>
+        <div id="auth-box" class="form-group" hidden>
+          <legend>Masuk atau daftar untuk menyimpan pantauan</legend>
+          <div class="form-row">
+            <div class="field">
+              <label for="authEmail">Email</label>
+              <input type="email" id="authEmail" autocomplete="email" inputmode="email">
+            </div>
+            <div class="field">
+              <label for="authPassword">Kata sandi (minimal 8 karakter)</label>
+              <input type="password" id="authPassword" autocomplete="current-password">
+            </div>
+          </div>
+          <div class="plan-actions">
+            <button type="button" class="btn btn-primary" id="authRegister">Daftar</button>
+            <button type="button" class="btn btn-ghost" id="authLogin">Masuk</button>
+          </div>
+          <p id="auth-status" role="status" aria-live="polite"></p>
+        </div>
+        <p id="auth-info" hidden>Masuk sebagai <strong id="auth-email"></strong> <button type="button" class="btn btn-ghost" id="authLogout">Keluar</button></p>
         <p id="watchlist-status" role="status" aria-live="polite"></p>
         <div id="watchlist-list"></div>
         <h3 class="results-heading" style="margin-top:28px">Alert harga</h3>

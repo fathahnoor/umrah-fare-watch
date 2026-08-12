@@ -17,7 +17,7 @@ export interface TierPlanEntry {
  * Tier by offset: 0-90 days -> A (24h), 91-210 -> B (48h),
  * 211-370 -> C (84h). Boundary days belong to the closer tier.
  */
-export function flightTierForOffset(offsetDays: number, config: AppConfig): FlightTier {
+export function flightTierForOffset(offsetDays: number, _config: AppConfig): FlightTier {
   if (offsetDays <= 90) {
     return "A";
   }
