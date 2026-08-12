@@ -445,12 +445,38 @@ export interface CalendarResponse {
   disclaimer: string;
 }
 
-/** One saved trip watchlist (07_ALERTS_AND_SCHEDULER.md section 2). */
+/** FLIGHT watchlist params (07_ALERTS_AND_SCHEDULER.md section 2). */
+export interface FlightWatchlistParams {
+  origin: string;
+  departureStart: string;
+  departureEnd: string;
+  adults: number;
+  childrenAges: number[];
+  cabin: CabinClass;
+  patterns: ItineraryPattern[];
+  maxStops?: number;
+  maxLayoverMinutes?: number;
+  maxTripDurationMinutes?: number;
+}
+
+/** HOTEL watchlist params (07_ALERTS_AND_SCHEDULER.md section 2). */
+export interface HotelWatchlistParams {
+  city: City;
+  checkIn: string;
+  checkOut: string;
+  adults: number;
+  childrenAges: number[];
+  rooms: number;
+  radiusKm: number;
+  freeCancellationOnly: boolean;
+}
+
+/** One saved watchlist (07_ALERTS_AND_SCHEDULER.md section 2). */
 export interface WatchlistRecord {
   id: string;
   ownerToken: string;
   type: WatchlistType;
-  input: TripSearchInput;
+  input: TripSearchInput | FlightWatchlistParams | HotelWatchlistParams;
   searchFingerprint: string;
   label: string | null;
   baselineTotalIdrMinor: number | null;

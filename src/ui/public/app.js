@@ -768,7 +768,8 @@ function renderWatchlists(watchlists) {
 
 function watchlistCard(w) {
   const label = w.label || "Pantauan tanpa label";
-  const dates = `${formatDate(w.input.departureStart)} sampai ${formatDate(w.input.departureEnd)}`;
+  const meta = watchlistMeta(w);
+  const typeBadge = w.type === "FLIGHT" ? "Tiket" : w.type === "HOTEL" ? "Hotel" : "Perjalanan lengkap";
   const dropNote =
     w.lastAlertedTotalIdrMinor != null && w.baselineTotalIdrMinor != null && w.lastAlertedTotalIdrMinor < w.baselineTotalIdrMinor
       ? `<p class="warn-line">Harga sudah turun dari saat dipantau: ${formatIdr(w.baselineTotalIdrMinor)} ke ${formatIdr(w.lastAlertedTotalIdrMinor)}.</p>`
@@ -778,9 +779,9 @@ function watchlistCard(w) {
       <div class="plan-total-row">
         <div>
           <h4 class="watchlist-title">${esc(label)}</h4>
-          <p class="plan-meta">${esc(dates)} &middot; ${esc(w.input.adults)} dewasa${w.input.childrenAges.length ? `, ${esc(w.input.childrenAges.length)} anak` : ""} &middot; ${esc(w.input.rooms)} kamar</p>
+          <p class="plan-meta">${esc(meta)}</p>
         </div>
-        <div class="badge-row">${badge("INDICATIVE_COMPLETE", "COMPLETE_TRIP")}</div>
+        <div class="badge-row">${badge("INDICATIVE_COMPLETE", typeBadge)}</div>
       </div>
       <div class="breakdown">
         <div class="breakdown-row"><span class="label">Total saat dipantau</span><span class="value">${formatIdr(w.baselineTotalIdrMinor)}</span></div>
@@ -794,6 +795,19 @@ function watchlistCard(w) {
         <button type="button" class="btn btn-ghost" data-wl-delete="${esc(w.id)}">Hapus</button>
       </div>
     </article>`;
+}
+
+function watchlistMeta(w) {
+  const input = w.input || {};
+  if (w.type === "FLIGHT") {
+    const patterns = (input.patterns || []).map((p) => p.replace(/_/g, " ").toLowerCase()).join(", ");
+    return `Tiket ${esc(input.origin)} &middot; ${esc(formatDate(input.departureStart))} sampai ${esc(formatDate(input.departureEnd))} &middot; ${esc(input.adults)} dewasa${input.childrenAges && input.childrenAges.length ? `, ${esc(input.childrenAges.length)} anak` : ""} &middot; ${esc(patterns)}`;
+  }
+  if (w.type === "HOTEL") {
+    const city = input.city === "MAKKAH" ? "Makkah" : "Madinah";
+    return `Hotel ${esc(city)} &middot; ${esc(formatDate(input.checkIn))} sampai ${esc(formatDate(input.checkOut))} &middot; ${esc(input.adults)} dewasa &middot; ${esc(input.rooms)} kamar &middot; radius ${esc(input.radiusKm)} km`;
+  }
+  return `${esc(formatDate(input.departureStart))} sampai ${esc(formatDate(input.departureEnd))} &middot; ${esc(input.adults)} dewasa${input.childrenAges && input.childrenAges.length ? `, ${esc(input.childrenAges.length)} anak` : ""} &middot; ${esc(input.rooms)} kamar`;
 }
 
 async function watchPlan(planId) {

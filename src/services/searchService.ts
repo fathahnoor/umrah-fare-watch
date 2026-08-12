@@ -17,6 +17,8 @@ import type {
   CoverageRecord,
   FlightCandidate,
   FlightObservation,
+  FlightWatchlistParams,
+  HotelWatchlistParams,
   HotelObservation,
   TripPlan,
   TripSearchInput,
@@ -27,7 +29,7 @@ import { validateTripSearchInput } from "../domain/validation.js";
 import { collectHealth, type ProviderRegistry } from "../providers/registry.js";
 import { enumerateDates } from "../providers/mock/mockFlightProvider.js";
 import { flightObservationSchema, hotelObservationSchema } from "../providers/schemas.js";
-import { ProviderError, type ProviderHealthSnapshot } from "../providers/types.js";
+import { ProviderError, type HotelProvider, type HotelSearchInput, type ProviderHealthSnapshot } from "../providers/types.js";
 import type { CoverageRepo } from "../store/coverage.js";
 import type { ObservationStore } from "../store/repositories.js";
 
@@ -41,6 +43,16 @@ export type SearchTripOutcome =
 export type CalendarOutcome =
   | { ok: true; response: CalendarResponse }
   | { ok: false; issues: ValidationIssue[] };
+
+/** Minimal comparable component check used by FLIGHT/HOTEL watchlists. */
+export interface WatchComponentCheck {
+  totalMinor: number | null;
+  observedAt: string | null;
+  expiresAt: string | null;
+  verificationStatus: FlightObservation["verificationStatus"] | null;
+  detail: Record<string, unknown>;
+  unavailable: boolean;
+}
 
 interface HotelBucket {
   key: string;
@@ -465,6 +477,142 @@ export class SearchService {
       }
       throw err;
     }
+  }
+
+  /**
+   * Standalone component check for FLIGHT watchlists: bounded discovery +
+   * verification, cheapest verified total wins. Returns no trip composition.
+   */
+  async checkFlightWatchlist(
+    params: FlightWatchlistParams,
+    now: Date,
+  ): Promise<WatchComponentCheck> {
+    const flightProvider = this.registry.flightProviders[0];
+    if (!flightProvider) {
+      throw new Error("no flight provider for watchlist check");
+    }
+    const discovery = await flightProvider.discover({
+      origin: params.origin,
+      departureStart: params.departureStart,
+      departureEnd: params.departureEnd,
+      adults: params.adults,
+      childrenAges: params.childrenAges,
+      patterns: params.patterns,
+      cabin: params.cabin,
+      maxStops: params.maxStops,
+      maxLayoverMinutes: params.maxLayoverMinutes,
+      maxTripDurationMinutes: params.maxTripDurationMinutes,
+      now,
+    });
+    const sorted = [...discovery.candidates].sort((a, b) => a.indicativeTotalMinor - b.indicativeTotalMinor);
+    const top = sorted.slice(0, this.config.maxFlightsForHotelEnrichmentPerSearch);
+    let best: FlightObservation | null = null;
+    for (const candidate of top) {
+      try {
+        const { observation } = await flightProvider.verify({
+          candidate,
+          adults: params.adults,
+          childrenAges: params.childrenAges,
+          cabin: params.cabin,
+          now,
+        });
+        if (observation.normalizedIdrAmountMinor != null && observation.verificationStatus !== "EXPIRED") {
+          if (best == null || (observation.normalizedIdrAmountMinor as number) < (best.normalizedIdrAmountMinor as number)) {
+            best = observation;
+          }
+        }
+      } catch {
+        // One failed verification must not hide cheaper candidates.
+      }
+    }
+    if (!best) {
+      return { totalMinor: null, observedAt: null, expiresAt: null, verificationStatus: null, detail: {}, unavailable: false };
+    }
+    return {
+      totalMinor: best.normalizedIdrAmountMinor,
+      observedAt: best.observedAt,
+      expiresAt: best.expiresAt,
+      verificationStatus: best.verificationStatus,
+      detail: {
+        providerId: best.providerId,
+        airline: best.segments[0]?.carrier ?? "Mock Air",
+        pattern: best.pattern,
+        stops: best.stopCount,
+        durationMinutes: best.durationMinutes,
+        departureLocalDate: best.departureLocalDate,
+        returnLocalDate: best.returnLocalDate,
+        bookingUrl: best.bookingUrl,
+      },
+      unavailable: false,
+    };
+  }
+
+  /** Standalone component check for HOTEL watchlists: exact canonical search. */
+  async checkHotelWatchlist(params: HotelWatchlistParams, now: Date): Promise<WatchComponentCheck> {
+    const hotelProvider = this.registry.hotelProviders[0];
+    if (!hotelProvider) {
+      throw new Error("no hotel provider for watchlist check");
+    }
+    const searchInput: HotelSearchInput = {
+      providerId: hotelProvider.id,
+      city: params.city,
+      checkIn: params.checkIn,
+      checkOut: params.checkOut,
+      adults: params.adults,
+      childrenAges: params.childrenAges,
+      rooms: params.rooms,
+      radiusKm: params.radiusKm,
+      freeCancellationOnly: params.freeCancellationOnly,
+      currency: "IDR",
+      now,
+    };
+    let result: Awaited<ReturnType<HotelProvider["search"]>>;
+    try {
+      result = await hotelProvider.search(searchInput);
+    } catch (err) {
+      const unavailable = err instanceof ProviderError;
+      return {
+        totalMinor: null,
+        observedAt: null,
+        expiresAt: null,
+        verificationStatus: null,
+        detail: { city: params.city, state: "PROVIDER_UNAVAILABLE" },
+        unavailable,
+      };
+    }
+    const observations = result.observations
+      .filter((o) => o.normalizedIdrAmountMinor != null && o.verificationStatus !== "EXPIRED")
+      .sort((a, b) => (a.normalizedIdrAmountMinor as number) - (b.normalizedIdrAmountMinor as number));
+    const best = observations[0] ?? null;
+    if (!best) {
+      return {
+        totalMinor: null,
+        observedAt: null,
+        expiresAt: null,
+        verificationStatus: null,
+        detail: { city: params.city, state: result.state },
+        unavailable: false,
+      };
+    }
+    return {
+      totalMinor: best.normalizedIdrAmountMinor,
+      observedAt: best.observedAt,
+      expiresAt: best.expiresAt,
+      verificationStatus: best.verificationStatus,
+      detail: {
+        providerId: best.providerId,
+        city: best.city,
+        propertyId: best.propertyId,
+        propertyName: best.propertyName,
+        checkIn: best.checkInLocalDate,
+        checkOut: best.checkOutLocalDate,
+        nights: best.nights,
+        rooms: best.rooms,
+        straightLineDistanceKm: best.straightLineDistanceKm,
+        bookingUrl: best.bookingUrl,
+      },
+      unavailable: false,
+    };
   }
 
   private recordFlightCoverage(input: TripSearchInput, observations: FlightObservation[], now: Date): void {

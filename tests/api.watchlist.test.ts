@@ -38,7 +38,7 @@ describe("API watchlist + alerts (07_ALERTS_AND_SCHEDULER MVP slice)", () => {
       const body = (await created.json()) as any;
       expect(body.watchlist.type).toBe("COMPLETE_TRIP");
       expect(body.watchlist.baselineTotalIdrMinor).toBeGreaterThan(0);
-      expect(body.plan.tripTotalIdrMinor).toBe(body.watchlist.baselineTotalIdrMinor);
+      expect(body.detail.plan.tripTotalIdrMinor).toBe(body.watchlist.baselineTotalIdrMinor);
 
       const listA = await fetch(`${baseUrl}/api/watchlist`, {
         headers: { "X-Session-Token": tokenA },

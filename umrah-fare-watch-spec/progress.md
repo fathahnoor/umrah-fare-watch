@@ -40,7 +40,13 @@
     - Endpoint: `POST /api/auth/register|login|logout`, `GET /api/auth/me`. Watchlist dan alerts kini wajib session (`X-Session-Token`) lewat helper `requireUser`; token perangkat lama diganti akun penuh sesuai spek "Pantauan Saya membutuhkan authentication".
     - UI: form daftar/masuk di seksi Pantauan Saya, auto-login setelah daftar, info akun + tombol Keluar, status pesan jelas.
     - Test `tests/api.auth.test.ts` (6): register + duplikat 409, validasi email/password, login + /me, password salah 401, logout invalidasi session, proteksi watchlist. `tests/api.watchlist.test.ts` dimigrasi ke session. Total suite 108 test.
-- Next: tipe watchlist FLIGHT/HOTEL + matching rule spek 07, M5-M7 (provider real, menunggu akses), M8 (booking handoff), M9 (release gate).
+  - **Watchlist tipe FLIGHT dan HOTEL (12 Agu 2026):**
+    - `FlightWatchlistParams` (origin, rentang tanggal, party, cabin, patterns, stops/layover/duration) dan `HotelWatchlistParams` (city, check-in/out, occupancy, rooms, radius, cancellation). Fingerprint watchlist kini menyertakan tipe.
+    - `SearchService.checkFlightWatchlist` (discovery bounded + verifikasi, total terverifikasi termurah) dan `checkHotelWatchlist` (search kanonikal, termurah; ProviderError jadi unavailable, bukan NO_RESULT).
+    - `WatchlistService.create/check` dispatch per tipe; alert memakai detail komponen (airline/pattern untuk FLIGHT, property/city untuk HOTEL) dengan dedup fingerprint yang sama. Validasi: origin/pattern FLIGHT, frontier + radius + check-out HOTEL (`OUTSIDE_PROVIDER_FRONTIER`).
+    - UI kartu pantauan adaptif per tipe (Tiket / Hotel / Perjalanan lengkap).
+    - Test `tests/api.watchlist.types.test.ts` (5): baseline FLIGHT terverifikasi, HOTEL + tolak frontier, stabilitas check HOTEL, validasi, default COMPLETE_TRIP. Total suite 113 test.
+- Next: M5-M7 (provider real, menunggu akses resmi), M8 (booking handoff), M9 (release gate).
 
 ## Session: 2026-08-11
 
