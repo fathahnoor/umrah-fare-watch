@@ -67,9 +67,41 @@ CREATE TABLE IF NOT EXISTS trip_plans (
   )
 );
 
+CREATE TABLE IF NOT EXISTS watchlists (
+  id TEXT PRIMARY KEY,
+  owner_token TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('FLIGHT', 'HOTEL', 'COMPLETE_TRIP')),
+  input_json TEXT NOT NULL,
+  search_fingerprint TEXT NOT NULL,
+  label TEXT,
+  baseline_total_idr_minor INTEGER CHECK (baseline_total_idr_minor IS NULL OR baseline_total_idr_minor >= 0),
+  threshold_idr_minor INTEGER CHECK (threshold_idr_minor IS NULL OR threshold_idr_minor >= 0),
+  last_alerted_total_idr_minor INTEGER CHECK (last_alerted_total_idr_minor IS NULL OR last_alerted_total_idr_minor >= 0),
+  last_checked_at TEXT,
+  last_checked_total_idr_minor INTEGER CHECK (last_checked_total_idr_minor IS NULL OR last_checked_total_idr_minor >= 0),
+  last_alert_sent_at TEXT,
+  created_at TEXT NOT NULL,
+  version INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS alert_events (
+  id TEXT PRIMARY KEY,
+  watchlist_id TEXT NOT NULL,
+  owner_token TEXT NOT NULL,
+  event_fingerprint TEXT NOT NULL,
+  current_total_idr_minor INTEGER NOT NULL CHECK (current_total_idr_minor >= 0),
+  previous_total_idr_minor INTEGER NOT NULL CHECK (previous_total_idr_minor >= 0),
+  drop_percent REAL NOT NULL,
+  payload TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  UNIQUE (event_fingerprint)
+);
+
 CREATE INDEX IF NOT EXISTS idx_flight_obs_offer ON flight_observations (provider_id, provider_offer_id, observed_at);
 CREATE INDEX IF NOT EXISTS idx_hotel_obs_key ON hotel_observations (canonical_key, observed_at);
 CREATE INDEX IF NOT EXISTS idx_trip_plans_fp ON trip_plans (search_fingerprint, calculated_at);
+CREATE INDEX IF NOT EXISTS idx_watchlists_owner ON watchlists (owner_token, created_at);
+CREATE INDEX IF NOT EXISTS idx_alert_events_owner ON alert_events (owner_token, created_at);
 `;
 
 export function openDb(path: string): DatabaseSync {

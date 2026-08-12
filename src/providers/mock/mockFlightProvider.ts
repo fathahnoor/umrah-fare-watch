@@ -161,6 +161,7 @@ export class MockFlightProvider implements FlightProvider {
               input.adults,
               input.childrenAges.length,
               stopCount,
+              input.now.getTime(),
             ),
             currency: "IDR",
             observedAt,

@@ -283,6 +283,27 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .cal-day.cheapest .cal-day-note { color: var(--emerald-800); font-weight: 800; }
 .cal-day.empty .cal-day-total { color: var(--ink-500); font-weight: 500; }
 
+/* Watchlist + alerts */
+.watchlist-card {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 18px;
+  box-shadow: var(--shadow);
+  margin-bottom: 16px;
+}
+.watchlist-title { margin: 0 0 4px; color: var(--emerald-900); font-size: 1.05rem; }
+.warn-line { font-size: 0.92rem; color: var(--emerald-800); background: var(--emerald-100); border-radius: 8px; padding: 8px 10px; }
+.alert-card {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-left: 4px solid var(--emerald-600);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.alert-line { margin: 0 0 2px; font-size: 0.95rem; color: var(--ink-900); }
+
 /* Results sort + filter controls */
 .plan-controls {
   display: flex;

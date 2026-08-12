@@ -21,7 +21,14 @@
     - Konteks harga jujur: kartu featured menampilkan "Termurah dari N paket lengkap yang ditemukan" + estimasi selisih vs rata-rata, dihitung dari data observasi (bukan riwayat palsu).
     - Minor: tombol "Cari tanggal lain" dan "Cek tanggal termurah" di header hasil; tombol kalender di form dan seksi Kalender harga.
     - Test baru `tests/api.calendar.test.ts` (4 test): total suite menjadi 86 test. Typecheck, lint, build, smoke, dan spec validator tetap hijau.
-- Next: M4 lanjutan (watchlist/alerts worker dan scheduler coverage, tetap menunggu auth per spek), M5-M7 (provider real, menunggu akses), M8 (booking handoff), M9 (release gate).
+  - **Watchlist + alert in-app (MVP slice M4, 12 Agu 2026):**
+    - Tabel `watchlists` dan `alert_events` (node:sqlite), repo `SqliteWatchlistRepo`, service `WatchlistService`.
+    - Endpoint: `POST/GET/DELETE /api/watchlist`, `POST /api/watchlist/:id/check`, `GET /api/alerts`. Auth MVP memakai header `X-Watchlist-Token` (token perangkat di localStorage); akun penuh menyusul di M4.
+    - Aturan spek 07 dipakai: alert saat total di bawah/equal threshold budget ATAU penurunan material vs total terakhir dialert; cooldown default 24 jam dengan bypass penurunan >= MATERIAL_DROP_PERCENT; fingerprint event (watchlistId|version|planKey|priceBucket|verificationClass|ruleVersion) dengan unique constraint untuk dedup.
+    - Harga flight mock kini memakai osilasi berbasis bucket 6 jam sehingga observasi ulang bergerak realistis (deterministik per `now`, semua test tetap hijau).
+    - Worker interval di `main()` (`WATCHLIST_WORKER_INTERVAL_MS`, default 5 menit) memeriksa semua watchlist berkala. Test `tests/api.watchlist.test.ts` (6 test): token wajib, create+list isolasi owner, create idempotent, alert budget, penurunan harga riil + dedup, delete. Total suite menjadi 92 test.
+    - UI: seksi "Pantauan Saya" (daftar pantauan + alert), tombol "Pantau paket ini" di kartu hasil lengkap, "Periksa sekarang" dan "Hapus" per item.
+- Next: M4 penuh (akun/auth, tipe watchlist FLIGHT/HOTEL, scheduler tier A/B/C, locks, delivery), M5-M7 (provider real, menunggu akses), M8 (booking handoff), M9 (release gate).
 
 ## Session: 2026-08-11
 

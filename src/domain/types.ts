@@ -442,3 +442,34 @@ export interface CalendarResponse {
   constraints: TripSearchInput;
   disclaimer: string;
 }
+
+/** One saved trip watchlist (07_ALERTS_AND_SCHEDULER.md section 2). */
+export interface WatchlistRecord {
+  id: string;
+  ownerToken: string;
+  type: WatchlistType;
+  input: TripSearchInput;
+  searchFingerprint: string;
+  label: string | null;
+  baselineTotalIdrMinor: number | null;
+  thresholdIdrMinor: number | null;
+  lastAlertedTotalIdrMinor: number | null;
+  lastCheckedAt: string | null;
+  lastCheckedTotalIdrMinor: number | null;
+  lastAlertSentAt: string | null;
+  createdAt: string;
+  version: number;
+}
+
+/** One in-app alert event (07_ALERTS_AND_SCHEDULER.md section 12). */
+export interface AlertEventRecord {
+  id: string;
+  watchlistId: string;
+  ownerToken: string;
+  eventFingerprint: string;
+  currentTotalIdrMinor: number;
+  previousTotalIdrMinor: number;
+  dropPercent: number;
+  payload: unknown;
+  createdAt: string;
+}

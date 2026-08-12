@@ -58,7 +58,7 @@ describe("mock flight provider (PROV-01..05, PROV-07)", () => {
     });
     const candidate = result.candidates[0] as (typeof result.candidates)[number];
     const { observation } = await p.verify({ candidate, adults: 2, childrenAges: [6], cabin: "economy", now: TEST_NOW });
-    const expected = mockFlightPriceIdr(candidate.departureLocalDate, candidate.pattern, 2, 1, candidate.stopCount);
+    const expected = mockFlightPriceIdr(candidate.departureLocalDate, candidate.pattern, 2, 1, candidate.stopCount, TEST_NOW.getTime());
     expect(observation.verificationStatus).toBe("LIVE_VERIFIED");
     expect(observation.originalAmountMinor).toBe(expected);
     expect(observation.normalizedIdrAmountMinor).toBe(expected);

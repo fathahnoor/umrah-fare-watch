@@ -438,6 +438,9 @@ function planCard(plan, partial) {
   if (f.bookingUrl) {
     actions.push(`<a class="btn btn-ghost" href="${esc(f.bookingUrl)}" target="_blank" rel="noopener" onclick="return confirm('Tautan ini adalah demo sintetis dari provider mock, bukan booking asli. Lanjut?')">Buka sumber booking (demo)</a>`);
   }
+  if (!partial && total != null) {
+    actions.push(`<button type="button" class="btn btn-ghost" data-watch-plan="${esc(plan.id)}">Pantau paket ini</button>`);
+  }
   actions.push(`<button type="button" class="btn btn-ghost" data-toggle-detail="${esc(plan.id)}">Lihat rincian biaya</button>`);
 
   return `
@@ -626,6 +629,176 @@ function formatDayShort(localDate) {
   return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1, d)));
 }
 
+/* ---------- watchlist + alerts ---------- */
+
+const WATCHLIST_TOKEN_KEY = "ufw_watchlist_token";
+
+function watchlistToken() {
+  let token = localStorage.getItem(WATCHLIST_TOKEN_KEY);
+  if (!token) {
+    token = (crypto.randomUUID ? crypto.randomUUID() : `dev-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    localStorage.setItem(WATCHLIST_TOKEN_KEY, token);
+  }
+  return token;
+}
+
+function watchlistHeaders(extra = {}) {
+  return { "Content-Type": "application/json", "X-Watchlist-Token": watchlistToken(), ...extra };
+}
+
+async function refreshWatchlist() {
+  const listWrap = $("#watchlist-list");
+  const alertsWrap = $("#alerts-list");
+  const status = $("#watchlist-status");
+  try {
+    const [wlRes, alertsRes] = await Promise.all([
+      fetch("/api/watchlist", { headers: watchlistHeaders() }),
+      fetch("/api/alerts", { headers: watchlistHeaders() }),
+    ]);
+    if (!wlRes.ok || !alertsRes.ok) {
+      status.textContent = "Pantauan tidak dapat dimuat.";
+      return;
+    }
+    const wl = await wlRes.json();
+    const alerts = await alertsRes.json();
+    renderWatchlists(wl.watchlists || []);
+    renderAlerts(alerts.alerts || []);
+    status.textContent = "";
+  } catch (_err) {
+    status.textContent = "Gagal memuat pantauan, coba lagi.";
+  }
+}
+
+function renderWatchlists(watchlists) {
+  const wrap = $("#watchlist-list");
+  if (watchlists.length === 0) {
+    wrap.innerHTML = `<p class="results-sub">Belum ada pantauan. Tekan "Pantau paket ini" pada kartu hasil untuk mulai.</p>`;
+    return;
+  }
+  wrap.innerHTML = watchlists.map(watchlistCard).join("");
+}
+
+function watchlistCard(w) {
+  const label = w.label || "Pantauan tanpa label";
+  const dates = `${formatDate(w.input.departureStart)} sampai ${formatDate(w.input.departureEnd)}`;
+  const dropNote =
+    w.lastAlertedTotalIdrMinor != null && w.baselineTotalIdrMinor != null && w.lastAlertedTotalIdrMinor < w.baselineTotalIdrMinor
+      ? `<p class="warn-line">Harga sudah turun dari saat dipantau: ${formatIdr(w.baselineTotalIdrMinor)} ke ${formatIdr(w.lastAlertedTotalIdrMinor)}.</p>`
+      : "";
+  return `
+    <article class="watchlist-card" data-wl-id="${esc(w.id)}">
+      <div class="plan-total-row">
+        <div>
+          <h4 class="watchlist-title">${esc(label)}</h4>
+          <p class="plan-meta">${esc(dates)} &middot; ${esc(w.input.adults)} dewasa${w.input.childrenAges.length ? `, ${esc(w.input.childrenAges.length)} anak` : ""} &middot; ${esc(w.input.rooms)} kamar</p>
+        </div>
+        <div class="badge-row">${badge("INDICATIVE_COMPLETE", "COMPLETE_TRIP")}</div>
+      </div>
+      <div class="breakdown">
+        <div class="breakdown-row"><span class="label">Total saat dipantau</span><span class="value">${formatIdr(w.baselineTotalIdrMinor)}</span></div>
+        <div class="breakdown-row"><span class="label">Total terakhir dicek</span><span class="value">${formatIdr(w.lastCheckedTotalIdrMinor)}</span></div>
+        ${w.thresholdIdrMinor != null ? `<div class="breakdown-row"><span class="label">Alert jika total &le; budget</span><span class="value">${formatIdr(w.thresholdIdrMinor)}</span></div>` : ""}
+        <div class="breakdown-row"><span class="label">Terakhir dicek</span><span class="value">${esc(formatDateTime(w.lastCheckedAt))}</span></div>
+      </div>
+      ${dropNote}
+      <div class="plan-actions">
+        <button type="button" class="btn btn-primary" data-wl-check="${esc(w.id)}">Periksa sekarang</button>
+        <button type="button" class="btn btn-ghost" data-wl-delete="${esc(w.id)}">Hapus</button>
+      </div>
+    </article>`;
+}
+
+async function watchPlan(planId) {
+  if (!lastResults || !lastResults.constraints) return;
+  const plan = lastResults.results.find((p) => p.id === planId);
+  const status = $("#watchlist-status");
+  const label = plan
+    ? `Umroh ${formatDate(plan.dates.makkahCheckIn)} - ${formatDate(plan.dates.madinahCheckOut)}`
+    : "Pantauan baru";
+  try {
+    const res = await fetch("/api/watchlist", {
+      method: "POST",
+      headers: watchlistHeaders(),
+      body: JSON.stringify({ input: lastResults.constraints, label }),
+    });
+    if (!res.ok) {
+      let message = "Gagal menyimpan pantauan";
+      try {
+        const body = await res.json();
+        if (body.errors && body.errors[0] && body.errors[0].message) message = body.errors[0].message;
+      } catch (_e) { /* non-JSON */ }
+      status.textContent = message;
+      return;
+    }
+    await refreshWatchlist();
+    status.textContent = "Pantauan tersimpan. Alert akan muncul di seksi Pantauan Saya saat harga turun.";
+    document.getElementById("pantauan")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (_err) {
+    status.textContent = "Gagal menyimpan pantauan, coba lagi.";
+  }
+}
+
+async function checkWatchlist(id) {
+  const status = $("#watchlist-status");
+  status.textContent = "Memeriksa ulang harga, mohon tunggu...";
+  try {
+    const res = await fetch(`/api/watchlist/${encodeURIComponent(id)}/check`, {
+      method: "POST",
+      headers: watchlistHeaders(),
+    });
+    const body = await res.json();
+    if (!res.ok) {
+      status.textContent = body.errors && body.errors[0] ? body.errors[0].message : "Gagal memeriksa harga.";
+      return;
+    }
+    await refreshWatchlist();
+    const newAlerts = body.createdEvents.length;
+    status.textContent =
+      newAlerts > 0
+        ? `Ada penurunan harga: total sekarang ${formatIdr(body.currentTotalIdrMinor)}. Alert baru: ${newAlerts}.`
+        : `Harga dicek ulang: ${formatIdr(body.currentTotalIdrMinor)} (belum ada penurunan baru).`;
+  } catch (_err) {
+    status.textContent = "Gagal memeriksa harga, coba lagi.";
+  }
+}
+
+async function deleteWatchlist(id) {
+  const status = $("#watchlist-status");
+  try {
+    const res = await fetch(`/api/watchlist/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: watchlistHeaders(),
+    });
+    if (res.ok) {
+      await refreshWatchlist();
+      status.textContent = "Pantauan dihapus.";
+    } else {
+      status.textContent = "Gagal menghapus pantauan.";
+    }
+  } catch (_err) {
+    status.textContent = "Gagal menghapus pantauan, coba lagi.";
+  }
+}
+
+function renderAlerts(alerts) {
+  const wrap = $("#alerts-list");
+  if (alerts.length === 0) {
+    wrap.innerHTML = `<p class="results-sub">Belum ada alert harga.</p>`;
+    return;
+  }
+  wrap.innerHTML = alerts.map((a) => {
+    const plan = a.payload && a.payload.plan;
+    const dates = plan
+      ? `${formatDate(plan.dates.makkahCheckIn)} sampai ${formatDate(plan.dates.madinahCheckOut)}`
+      : "";
+    return `
+      <article class="alert-card">
+        <p class="alert-line"><strong>Harga turun:</strong> ${formatIdr(a.previousTotalIdrMinor)} ke ${formatIdr(a.currentTotalIdrMinor)} (turun ${esc(a.dropPercent.toFixed(1))}%).</p>
+        ${dates ? `<p class="plan-meta">${esc(dates)} &middot; ${esc(formatDateTime(a.createdAt))}</p>` : `<p class="plan-meta">${esc(formatDateTime(a.createdAt))}</p>`}
+      </article>`;
+  }).join("");
+}
+
 /* ---------- wiring ---------- */
 
 function init() {
@@ -677,6 +850,21 @@ function init() {
       $("#departureStart").value = date;
       $("#departureEnd").value = date;
       runSearch();
+      return;
+    }
+    const watchBtn = event.target.closest("[data-watch-plan]");
+    if (watchBtn) {
+      watchPlan(watchBtn.getAttribute("data-watch-plan"));
+      return;
+    }
+    const checkBtn = event.target.closest("[data-wl-check]");
+    if (checkBtn) {
+      checkWatchlist(checkBtn.getAttribute("data-wl-check"));
+      return;
+    }
+    const deleteBtn = event.target.closest("[data-wl-delete]");
+    if (deleteBtn) {
+      deleteWatchlist(deleteBtn.getAttribute("data-wl-delete"));
     }
   });
 
@@ -706,6 +894,8 @@ function init() {
   $("#about-disclaimer").textContent = DISCLAIMER;
   $("#results-disclaimer").textContent = DISCLAIMER;
   $("#hotel-reminder").textContent = HOTEL_REMINDER;
+
+  refreshWatchlist();
 }
 
 document.addEventListener("DOMContentLoaded", init);

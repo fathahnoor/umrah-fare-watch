@@ -3,6 +3,7 @@ import { createApp } from "../src/api/server.js";
 import { createMockRegistry, type ProviderRegistry } from "../src/providers/registry.js";
 import { openDb } from "../src/store/db.js";
 import { SqliteStore, type ObservationStore } from "../src/store/repositories.js";
+import { SqliteWatchlistRepo } from "../src/store/watchlist.js";
 import { SearchService } from "../src/services/searchService.js";
 import type { TripSearchInput } from "../src/domain/types.js";
 import type { Express } from "express";
@@ -66,8 +67,9 @@ export function createTestApp(now: Date = TEST_NOW): AppContext {
   });
   const db = openDb(":memory:");
   const store = new SqliteStore(db);
+  const watchlistRepo = new SqliteWatchlistRepo(db);
   const registry = createMockRegistry(config.mockHotelFrontierDays);
-  const app = createApp({ registry, store, config, now: () => now });
+  const app = createApp({ registry, store, watchlistRepo, config, now: () => now });
   return { app, config, store, registry };
 }
 

@@ -97,16 +97,21 @@ export function mockFlightPriceIdr(
   adults: number,
   childrenCount: number,
   stopCount: number,
+  timeSeedMs?: number,
 ): number {
   const dayNum = dayNumber(departureLocalDate);
   const adultFare = 4_200_000 + (dayNum % 17) * 210_000;
   const childFare = 3_600_000 + (dayNum % 11) * 150_000;
   const transitAdjust = stopCount === 0 ? 0 : -300_000;
+  // Small time-bucketed oscillation so re-observations drift like real fares.
+  // Same 6-hour bucket yields the same price; determinism holds per `now`.
+  const timeAdjust = timeSeedMs != null ? (Math.floor(timeSeedMs / 21_600_000) % 8) * 50_000 : 0;
   return (
     adultFare * adults +
     childFare * childrenCount +
     (PATTERN_OFFSET_IDR[pattern] ?? 0) +
-    transitAdjust
+    transitAdjust +
+    timeAdjust
   );
 }
 
