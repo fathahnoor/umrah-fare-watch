@@ -1,6 +1,7 @@
 import { loadConfig, type AppConfig } from "../src/config.js";
 import { createApp } from "../src/api/server.js";
 import { createMockRegistry, type ProviderRegistry } from "../src/providers/registry.js";
+import { SqliteCoverageRepo } from "../src/store/coverage.js";
 import { openDb } from "../src/store/db.js";
 import { SqliteStore, type ObservationStore } from "../src/store/repositories.js";
 import { SqliteWatchlistRepo } from "../src/store/watchlist.js";
@@ -68,8 +69,9 @@ export function createTestApp(now: Date = TEST_NOW): AppContext {
   const db = openDb(":memory:");
   const store = new SqliteStore(db);
   const watchlistRepo = new SqliteWatchlistRepo(db);
+  const coverageRepo = new SqliteCoverageRepo(db);
   const registry = createMockRegistry(config.mockHotelFrontierDays);
-  const app = createApp({ registry, store, watchlistRepo, config, now: () => now });
+  const app = createApp({ registry, store, watchlistRepo, coverageRepo, config, now: () => now });
   return { app, config, store, registry };
 }
 

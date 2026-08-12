@@ -14,6 +14,7 @@ import type {
   CalendarDaySummary,
   CalendarResponse,
   City,
+  CoverageRecord,
   FlightCandidate,
   FlightObservation,
   HotelObservation,
@@ -27,6 +28,7 @@ import { collectHealth, type ProviderRegistry } from "../providers/registry.js";
 import { enumerateDates } from "../providers/mock/mockFlightProvider.js";
 import { flightObservationSchema, hotelObservationSchema } from "../providers/schemas.js";
 import { ProviderError, type ProviderHealthSnapshot } from "../providers/types.js";
+import type { CoverageRepo } from "../store/coverage.js";
 import type { ObservationStore } from "../store/repositories.js";
 
 export const REQUIRED_DISCLAIMER =
@@ -54,6 +56,7 @@ export class SearchService {
     private readonly registry: ProviderRegistry,
     private readonly store: ObservationStore,
     private readonly config: AppConfig,
+    private readonly coverageRepo?: CoverageRepo,
   ) {}
 
   async searchTrip(raw: unknown, now: Date): Promise<SearchTripOutcome> {
@@ -226,6 +229,10 @@ export class SearchService {
         }
       }
     }
+
+    // 4b. Coverage recording: user searches feed the calendar (append-only,
+    // failures never erase earlier rows).
+    this.recordFlightCoverage(input, flightObservations, now);
 
     // 5. Ranking: only COMPLETE, usable plans enter the primary list.
     for (const plan of plans) {
@@ -431,6 +438,12 @@ export class SearchService {
         observations.push(parsed.data);
       }
       const state: AvailabilityState = result.state === "HAS_RESULT" ? "HAS_RESULT" : result.state === "NO_RESULT" ? "NO_RESULT" : "NOT_YET_SEARCHABLE";
+      this.recordHotelCoverage(
+        { providerId: searchInput.providerId, city: searchInput.city, checkIn: searchInput.checkIn },
+        state,
+        observations.length,
+        searchInput.now,
+      );
       return { key, city: searchInput.city, checkIn: searchInput.checkIn, checkOut: searchInput.checkOut, observations, state };
     } catch (err) {
       if (err instanceof ProviderError) {
@@ -441,10 +454,89 @@ export class SearchService {
           nextEligibleAt: err.nextEligibleAt,
         });
         warnings.push(`Pencarian hotel ${searchInput.city === "MAKKAH" ? "Makkah" : "Madinah"} gagal, data lama tidak dihapus`);
+        this.recordHotelCoverage(
+          { providerId: searchInput.providerId, city: searchInput.city, checkIn: searchInput.checkIn },
+          "PROVIDER_UNAVAILABLE",
+          0,
+          searchInput.now,
+          err.category,
+        );
         return { key, city: searchInput.city, checkIn: searchInput.checkIn, checkOut: searchInput.checkOut, observations: [], state: "PROVIDER_UNAVAILABLE" };
       }
       throw err;
     }
+  }
+
+  private recordFlightCoverage(input: TripSearchInput, observations: FlightObservation[], now: Date): void {
+    if (!this.coverageRepo) {
+      return;
+    }
+    const flightProvider = this.registry.flightProviders[0];
+    if (!flightProvider) {
+      return;
+    }
+    const byDate = new Map<string, number>();
+    for (const obs of observations) {
+      const key = obs.departureLocalDate;
+      byDate.set(key, (byDate.get(key) ?? 0) + 1);
+    }
+    const observedAt = now.toISOString();
+    // A bounded user search verifies only the top candidates, so it proves
+    // HAS_RESULT for dates with observations but never proves NO_RESULT for
+    // other dates. Writing NO_RESULT here would erase scheduler coverage.
+    for (const date of enumerateDates(input.departureStart, input.departureEnd)) {
+      const count = byDate.get(date) ?? 0;
+      if (count === 0) {
+        continue;
+      }
+      this.coverageRepo.upsertCoverage({
+        domain: "FLIGHT",
+        providerId: flightProvider.id,
+        city: null,
+        date,
+        availabilityState: "HAS_RESULT",
+        frontierDate: null,
+        lastAttemptAt: observedAt,
+        lastSuccessAt: observedAt,
+        nextEligibleAt: null,
+        resultCount: count,
+        errorCategory: null,
+        scanRunId: null,
+        updatedAt: observedAt,
+      });
+    }
+  }
+
+  private recordHotelCoverage(
+    searchInput: {
+      providerId: string;
+      city: City;
+      checkIn: string;
+    },
+    state: AvailabilityState,
+    resultCount: number,
+    now: Date,
+    errorCategory: CoverageRecord["errorCategory"] = null,
+  ): void {
+    if (!this.coverageRepo) {
+      return;
+    }
+    const observedAt = now.toISOString();
+    this.coverageRepo.upsertCoverage({
+      domain: "HOTEL",
+      providerId: searchInput.providerId,
+      city: searchInput.city,
+      date: searchInput.checkIn,
+      availabilityState: state,
+      frontierDate: null,
+      lastAttemptAt: observedAt,
+      lastSuccessAt: state === "HAS_RESULT" ? observedAt : null,
+      nextEligibleAt: null,
+      resultCount,
+      errorCategory,
+      scanRunId: null,
+      updatedAt: observedAt,
+    });
   }
 }
 

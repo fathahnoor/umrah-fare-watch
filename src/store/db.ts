@@ -84,6 +84,23 @@ CREATE TABLE IF NOT EXISTS watchlists (
   version INTEGER NOT NULL DEFAULT 1
 );
 
+CREATE TABLE IF NOT EXISTS coverage_records (
+  domain TEXT NOT NULL CHECK (domain IN ('FLIGHT', 'HOTEL')),
+  provider_id TEXT NOT NULL,
+  city TEXT,
+  date TEXT NOT NULL,
+  availability_state TEXT NOT NULL,
+  frontier_date TEXT,
+  last_attempt_at TEXT,
+  last_success_at TEXT,
+  next_eligible_at TEXT,
+  result_count INTEGER NOT NULL DEFAULT 0,
+  error_category TEXT,
+  scan_run_id TEXT,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (domain, provider_id, date, city)
+);
+
 CREATE TABLE IF NOT EXISTS alert_events (
   id TEXT PRIMARY KEY,
   watchlist_id TEXT NOT NULL,
@@ -102,6 +119,7 @@ CREATE INDEX IF NOT EXISTS idx_hotel_obs_key ON hotel_observations (canonical_ke
 CREATE INDEX IF NOT EXISTS idx_trip_plans_fp ON trip_plans (search_fingerprint, calculated_at);
 CREATE INDEX IF NOT EXISTS idx_watchlists_owner ON watchlists (owner_token, created_at);
 CREATE INDEX IF NOT EXISTS idx_alert_events_owner ON alert_events (owner_token, created_at);
+CREATE INDEX IF NOT EXISTS idx_coverage_date ON coverage_records (domain, date);
 `;
 
 export function openDb(path: string): DatabaseSync {

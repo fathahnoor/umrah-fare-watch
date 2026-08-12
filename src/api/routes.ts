@@ -2,14 +2,32 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
 import type { AppConfig } from "../config.js";
+import { addDays, todayLocalDate } from "../domain/dates.js";
+import type { CoverageService } from "../services/coverageService.js";
 import type { SearchService } from "../services/searchService.js";
 import type { WatchlistService } from "../services/watchlistService.js";
 
 export interface RouteDeps {
   searchService: SearchService;
   watchlistService: WatchlistService;
+  coverageService: CoverageService;
   config: AppConfig;
   now: () => Date;
+}
+
+function calendarWindow(
+  startRaw: string | null,
+  endRaw: string | null,
+  months: number,
+  now: Date,
+): { start: string; end: string } {
+  const today = todayLocalDate(now);
+  const start = startRaw && /^\d{4}-\d{2}-\d{2}$/.test(startRaw) ? startRaw : today;
+  const end =
+    endRaw && /^\d{4}-\d{2}-\d{2}$/.test(endRaw)
+      ? endRaw
+      : addDays(start, months * 31 - 1);
+  return { start, end };
 }
 
 function watchlistToken(req: Request): string | null {
@@ -145,6 +163,30 @@ export function createRoutes(deps: RouteDeps): Router {
   router.get("/coverage", async (_req: Request, res: Response) => {
     const coverage = await deps.searchService.coverageOverview(deps.now());
     res.json(coverage);
+  });
+
+  router.post("/coverage/scan", async (_req: Request, res: Response) => {
+    const result = await deps.coverageService.runDueScans(deps.now());
+    res.json(result);
+  });
+
+  router.get("/coverage/calendar", async (req: Request, res: Response) => {
+    const now = deps.now();
+    const startRaw = typeof req.query.start === "string" ? req.query.start : null;
+    const endRaw = typeof req.query.end === "string" ? req.query.end : null;
+    const monthsRaw = Number.parseInt(String(req.query.months ?? "12"), 10);
+    const months = Number.isFinite(monthsRaw) ? Math.min(Math.max(monthsRaw, 1), 13) : 12;
+    const { start, end } = calendarWindow(startRaw, endRaw, months, now);
+    const days = await deps.coverageService.calendarDays(start, end, now);
+    const hotelProvider = deps.searchService.coverageOverview(now);
+    const frontier = (await hotelProvider).hotelFrontierDate;
+    res.json({
+      start,
+      end,
+      days,
+      hotelFrontierDate: frontier,
+      generatedAt: now.toISOString(),
+    });
   });
 
   return router;

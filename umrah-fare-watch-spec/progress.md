@@ -28,7 +28,14 @@
     - Harga flight mock kini memakai osilasi berbasis bucket 6 jam sehingga observasi ulang bergerak realistis (deterministik per `now`, semua test tetap hijau).
     - Worker interval di `main()` (`WATCHLIST_WORKER_INTERVAL_MS`, default 5 menit) memeriksa semua watchlist berkala. Test `tests/api.watchlist.test.ts` (6 test): token wajib, create+list isolasi owner, create idempotent, alert budget, penurunan harga riil + dedup, delete. Total suite menjadi 92 test.
     - UI: seksi "Pantauan Saya" (daftar pantauan + alert), tombol "Pantau paket ini" di kartu hasil lengkap, "Periksa sekarang" dan "Hapus" per item.
-- Next: M4 penuh (akun/auth, tipe watchlist FLIGHT/HOTEL, scheduler tier A/B/C, locks, delivery), M5-M7 (provider real, menunggu akses), M8 (booking handoff), M9 (release gate).
+  - **Scheduler coverage + Kalender 365 hari (12 Agu 2026):**
+    - Tabel `coverage_records` (PK domain|provider|date|city), repo `SqliteCoverageRepo`, planner murni `domain/coveragePlan.ts` (tier A 24h / B 48h / C 84h untuk offset 1-90 / 91-210 / 211-370, plan 370 hari, jitter deterministik <= 15% interval, `isCoverageDue`).
+    - `CoverageService`: `runFlightCoverageScan` (scan semua tanggal due, simpan state + resultCount + nextEligibleAt), `refreshHotelFrontier` (hari 331+ ditandai `NOT_YET_SEARCHABLE` tanpa memanggil provider, nextEligibleAt saat check-in masuk frontier), `calendarDays` (agregasi per tanggal).
+    - Pencarian user mencatat coverage: flight HAS_RESULT hanya untuk tanggal yang benar-benar diverifikasi (bounded search tidak menulis NO_RESULT), hotel HAS_RESULT/NO_RESULT/PROVIDER_UNAVAILABLE per check-in.
+    - API: `POST /api/coverage/scan` (trigger admin) dan `GET /api/coverage/calendar?start&end&months` (default 12 bulan). Worker di `main()`: scan awal saat startup + interval `COVERAGE_WORKER_INTERVAL_MS`.
+    - UI: blok "Cakupan flight & hotel (365 hari)" di seksi Kalender harga, grid bulanan dengan label F/H (Tersedia, Belum, Frontier, Sibuk, Tanpa hasil) bukan warna saja; klik tanggal flight tersedia langsung mencari.
+    - Test `tests/domain.coveragePlan.test.ts` (5) + `tests/api.coverage.test.ts` (5): boundary tier, plan 370 hari, jitter deterministik, scan 370 flight + 80 frontier, kalender 365 hari, hotel day 331 NOT_YET_SEARCHABLE bukan NO_RESULT, coverage dari user search. Total suite 102 test.
+- Next: akun pengguna (auth scrypt + session) untuk Pantauan Saya, tipe watchlist FLIGHT/HOTEL + matching rule, M5-M7 (provider real, menunggu akses), M8 (booking handoff), M9 (release gate).
 
 ## Session: 2026-08-11
 

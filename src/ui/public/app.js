@@ -629,6 +629,60 @@ function formatDayShort(localDate) {
   return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1, d)));
 }
 
+/* ---------- 365-day coverage calendar ---------- */
+
+const COVERAGE_SHORT_LABELS = {
+  HAS_RESULT: "Tersedia",
+  NO_RESULT: "Tanpa hasil",
+  NOT_SCANNED: "Belum",
+  NOT_YET_PUBLISHED: "Belum terbit",
+  NOT_YET_SEARCHABLE: "Frontier",
+  PROVIDER_UNAVAILABLE: "Sibuk",
+};
+
+const MONTH_NAMES = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+
+async function loadCoverageCalendar() {
+  const wrap = $("#coverage-calendar");
+  const status = $("#coverage-status");
+  status.textContent = "Memuat cakupan 365 hari...";
+  try {
+    const res = await fetch("/api/coverage/calendar?months=12");
+    if (!res.ok) {
+      status.textContent = "Cakupan tidak dapat dimuat.";
+      return;
+    }
+    const data = await res.json();
+    wrap.innerHTML = renderCoverageCalendar(data.days);
+    status.textContent = "";
+  } catch (_err) {
+    status.textContent = "Gagal memuat cakupan, coba lagi.";
+  }
+}
+
+function renderCoverageCalendar(days) {
+  let html = "";
+  let lastMonthKey = null;
+  for (const day of days) {
+    const dt = parseLocal(day.date);
+    const monthKey = `${dt.getUTCFullYear()}-${dt.getUTCMonth()}`;
+    if (monthKey !== lastMonthKey) {
+      lastMonthKey = monthKey;
+      html += `<div class="cov-month">${esc(MONTH_NAMES[dt.getUTCMonth()])} ${dt.getUTCFullYear()}</div>`;
+    }
+    const clickable = day.flight === "HAS_RESULT";
+    const fLabel = COVERAGE_SHORT_LABELS[day.flight] || day.flight;
+    const hLabel = COVERAGE_SHORT_LABELS[day.hotel] || day.hotel;
+    html += `
+      <button type="button" class="cov-day${clickable ? " clickable" : ""}" data-cov-date="${esc(day.date)}" ${clickable ? `aria-label="${esc(formatDate(day.date))}, flight tersedia, hotel ${esc(hLabel.toLowerCase())}"` : `aria-label="${esc(formatDate(day.date))}, flight ${esc(fLabel.toLowerCase())}, hotel ${esc(hLabel.toLowerCase())}"`}>
+        <span class="cov-date">${dt.getUTCDate()}</span>
+        <span class="cov-status cov-f" data-state="${esc(day.flight)}">F ${esc(fLabel)}</span>
+        <span class="cov-status cov-h" data-state="${esc(day.hotel)}">H ${esc(hLabel)}</span>
+      </button>`;
+  }
+  return html;
+}
+
 /* ---------- watchlist + alerts ---------- */
 
 const WATCHLIST_TOKEN_KEY = "ufw_watchlist_token";
@@ -852,6 +906,14 @@ function init() {
       runSearch();
       return;
     }
+    const covDay = event.target.closest(".cov-day.clickable[data-cov-date]");
+    if (covDay) {
+      const date = covDay.getAttribute("data-cov-date");
+      $("#departureStart").value = date;
+      $("#departureEnd").value = date;
+      runSearch();
+      return;
+    }
     const watchBtn = event.target.closest("[data-watch-plan]");
     if (watchBtn) {
       watchPlan(watchBtn.getAttribute("data-watch-plan"));
@@ -896,6 +958,7 @@ function init() {
   $("#hotel-reminder").textContent = HOTEL_REMINDER;
 
   refreshWatchlist();
+  loadCoverageCalendar();
 }
 
 document.addEventListener("DOMContentLoaded", init);

@@ -15,6 +15,10 @@ export interface AppConfig {
   maxTripPlansReturned: number;
   maxConcurrentProviderRequests: number;
   calendarScanDaysMax: number;
+  flightTierAHours: number;
+  flightTierBHours: number;
+  flightTierCHours: number;
+  coverageWorkerIntervalMs: number;
   alertCooldownHours: number;
   materialDropPercent: number;
   requestCacheTtlMs: number;
@@ -54,6 +58,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     maxTripPlansReturned: intFromEnv(env, "MAX_TRIP_PLANS_RETURNED", 20, 1, 100),
     maxConcurrentProviderRequests: intFromEnv(env, "MAX_CONCURRENT_PROVIDER_REQUESTS", 3, 1, 10),
     calendarScanDaysMax: intFromEnv(env, "CALENDAR_SCAN_DAYS_MAX", 30, 1, 60),
+    flightTierAHours: intFromEnv(env, "FLIGHT_TIER_A_HOURS", 24, 1, 168),
+    flightTierBHours: intFromEnv(env, "FLIGHT_TIER_B_HOURS", 48, 1, 336),
+    flightTierCHours: intFromEnv(env, "FLIGHT_TIER_C_HOURS", 84, 1, 504),
+    coverageWorkerIntervalMs: intFromEnv(env, "COVERAGE_WORKER_INTERVAL_MS", 600_000, 10_000, 3_600_000),
     alertCooldownHours: intFromEnv(env, "ALERT_COOLDOWN_HOURS", 24, 1, 720),
     materialDropPercent: intFromEnv(env, "MATERIAL_DROP_PERCENT", 3, 1, 50),
     requestCacheTtlMs: intFromEnv(env, "REQUEST_CACHE_TTL_MS", 15 * 60_000, 1_000, 86_400_000),

@@ -380,6 +380,8 @@ export interface CoverageRecord {
   nextEligibleAt: string | null;
   resultCount: number;
   errorCategory: ErrorCategory | null;
+  scanRunId: string | null;
+  updatedAt: string;
 }
 
 export interface TripSearchResponse {

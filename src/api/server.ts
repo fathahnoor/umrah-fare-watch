@@ -6,8 +6,10 @@ import type { NextFunction, Request, Response } from "express";
 import { loadConfig, type AppConfig } from "../config.js";
 import { createMockRegistry, type ProviderRegistry } from "../providers/registry.js";
 import { ProviderError } from "../providers/types.js";
+import { CoverageService } from "../services/coverageService.js";
 import { SearchService } from "../services/searchService.js";
 import { WatchlistService } from "../services/watchlistService.js";
+import { SqliteCoverageRepo, type CoverageRepo } from "../store/coverage.js";
 import { openDb } from "../store/db.js";
 import { SqliteStore, type ObservationStore } from "../store/repositories.js";
 import { SqliteWatchlistRepo, type WatchlistRepo } from "../store/watchlist.js";
@@ -17,6 +19,7 @@ export interface AppDeps {
   registry: ProviderRegistry;
   store: ObservationStore;
   watchlistRepo: WatchlistRepo;
+  coverageRepo: CoverageRepo;
   config: AppConfig;
   now: () => Date;
   searchService?: SearchService;
@@ -25,8 +28,11 @@ export interface AppDeps {
 
 export function createApp(deps: AppDeps): express.Express {
   const app = express();
+  const coverageRepo = deps.coverageRepo;
   const searchService =
-    deps.searchService ?? new SearchService(deps.registry, deps.store, deps.config);
+    deps.searchService ??
+    new SearchService(deps.registry, deps.store, deps.config, coverageRepo);
+  const coverageService = new CoverageService(deps.registry, coverageRepo, deps.config);
   const watchlistService =
     deps.watchlistService ??
     new WatchlistService(searchService, deps.watchlistRepo, deps.config);
@@ -56,7 +62,16 @@ export function createApp(deps: AppDeps): express.Express {
     next();
   });
 
-  app.use("/api", createRoutes({ searchService, watchlistService, config: deps.config, now: deps.now }));
+  app.use(
+    "/api",
+    createRoutes({
+      searchService,
+      watchlistService,
+      coverageService,
+      config: deps.config,
+      now: deps.now,
+    }),
+  );
 
   app.use(express.static(deps.config.publicDir, { index: "index.html" }));
 
@@ -110,13 +125,16 @@ function main(): void {
   const db = openDb(config.dbPath);
   const store = new SqliteStore(db);
   const watchlistRepo = new SqliteWatchlistRepo(db);
+  const coverageRepo = new SqliteCoverageRepo(db);
   const registry = createMockRegistry(config.mockHotelFrontierDays);
-  const searchService = new SearchService(registry, store, config);
+  const searchService = new SearchService(registry, store, config, coverageRepo);
   const watchlistService = new WatchlistService(searchService, watchlistRepo, config);
+  const coverageService = new CoverageService(registry, coverageRepo, config);
   const app = createApp({
     registry,
     store,
     watchlistRepo,
+    coverageRepo,
     config,
     now: () => new Date(),
     searchService,
@@ -129,20 +147,38 @@ function main(): void {
     );
   });
 
-  // MVP worker slice: periodically re-check saved watchlists so price drops
-  // become in-app alerts. Full tiered scheduler arrives with M4.
-  const workerIntervalMs = Number.parseInt(process.env.WATCHLIST_WORKER_INTERVAL_MS ?? "300000", 10);
-  const worker = setInterval(() => {
+  // Initial coverage pass so the 365-day calendar is populated right away,
+  // then periodic re-scans at the tier cadences.
+  coverageService.runDueScans(new Date()).catch((err: unknown) => {
+    process.stderr.write(
+      `${JSON.stringify({ ts: new Date().toISOString(), level: "error", message: "initial coverage scan failed", detail: err instanceof Error ? err.message : String(err) })}\n`,
+    );
+  });
+  const coverageIntervalMs = config.coverageWorkerIntervalMs;
+  const coverageWorker = setInterval(() => {
+    coverageService.runDueScans(new Date()).catch((err: unknown) => {
+      process.stderr.write(
+        `${JSON.stringify({ ts: new Date().toISOString(), level: "error", message: "coverage worker failed", detail: err instanceof Error ? err.message : String(err) })}\n`,
+      );
+    });
+  }, coverageIntervalMs);
+  coverageWorker.unref();
+
+  // Watchlist worker: periodically re-check saved watchlists so price drops
+  // become in-app alerts.
+  const watchlistIntervalMs = Number.parseInt(process.env.WATCHLIST_WORKER_INTERVAL_MS ?? "300000", 10);
+  const watchlistWorker = setInterval(() => {
     watchlistService.checkAll(new Date()).catch((err: unknown) => {
       process.stderr.write(
         `${JSON.stringify({ ts: new Date().toISOString(), level: "error", message: "watchlist worker failed", detail: err instanceof Error ? err.message : String(err) })}\n`,
       );
     });
-  }, Math.max(workerIntervalMs, 10_000));
-  worker.unref();
+  }, Math.max(watchlistIntervalMs, 10_000));
+  watchlistWorker.unref();
 
   const shutdown = (): void => {
-    clearInterval(worker);
+    clearInterval(coverageWorker);
+    clearInterval(watchlistWorker);
     server.close(() => {
       store.close();
       process.exit(0);
