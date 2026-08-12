@@ -291,12 +291,26 @@ function renderResults(data) {
   lastResults = data;
 
   const header = $("#results-header");
-  const providers = data.activeProviders.map((p) => p.id.replace("mock-", "Mock ")).join(", ");
+  const PROVIDER_NAMES = {
+    "mock-flight": "Mock Flight",
+    "mock-hotel": "Mock Hotel",
+    "serpapi-flights": "Google Flights",
+    "serpapi-hotels": "Google Hotels",
+    travelpayouts: "Travelpayouts",
+    "duffel-flights": "Duffel Flights",
+    "duffel-stays": "Duffel Stays",
+  };
+  const active = (data.activeProviders || []).filter((p) => p.enabled);
+  const providers = active.map((p) => PROVIDER_NAMES[p.id] || p.id).join(", ");
+  const anyReal = active.some((p) => p.mode && p.mode !== "MOCK");
+  const sourceLabel = anyReal
+    ? "Data live dari provider nyata (harga dan ketersediaan terkini)"
+    : "mode demo, data sintetis";
   const makkahBadge = badge(data.coverage.makkahHotel, STATE_LABELS[data.coverage.makkahHotel] || data.coverage.makkahHotel);
   const madinahBadge = badge(data.coverage.madinahHotel, STATE_LABELS[data.coverage.madinahHotel] || data.coverage.madinahHotel);
   header.innerHTML = `
     <h2>Hasil pencarian</h2>
-    <p><strong>Provider aktif:</strong> ${esc(providers)} (mode demo, data sintetis). Waktu observasi: ${esc(formatDateTime(data.observedAt))}.</p>
+    <p><strong>Provider aktif:</strong> ${esc(providers)} (${esc(sourceLabel)}). Waktu observasi: ${esc(formatDateTime(data.observedAt))}.</p>
     <p><strong>Cakupan:</strong> Tiket ${badge(data.coverage.flight, STATE_LABELS[data.coverage.flight] || data.coverage.flight)} &nbsp; Hotel Makkah ${makkahBadge} &nbsp; Hotel Madinah ${madinahBadge}</p>
     ${data.coverage.hotelFrontierDate ? `<p>Hotel dapat dicari sampai tanggal ${esc(formatDate(data.coverage.hotelFrontierDate))} (frontier provider).</p>` : ""}
     <div class="plan-actions">
@@ -426,7 +440,7 @@ function planCard(plan, partial) {
         <h4>${esc(label)}: ${esc(h.propertyName)}</h4>
         <ul>
           <li>${esc(h.roomName)} (${esc(h.rateName)}), ${esc(h.boardType)}</li>
-          <li>Jarak ${esc(h.straightLineDistanceKm)} km (${esc(h.distanceSemantic.toLowerCase())})</li>
+          <li>Jarak ${esc((Math.round(h.straightLineDistanceKm * 10) / 10).toFixed(1))} km (${esc(h.distanceSemantic.toLowerCase())})</li>
           <li>Pembatalan: ${esc(h.freeCancellation ? "gratis sebelum " + formatDate(h.cancellationDeadline) : "tidak refundable")}</li>
           <li>Bayar sekarang ${formatIdr(h.dueNowAmountMinor)}, bayar di properti ${formatIdr(h.dueAtPropertyAmountMinor)}</li>
           <li>Provider ${esc(h.providerId)}, terakhir diverifikasi ${esc(formatDateTime(h.observedAt))}</li>
@@ -436,7 +450,12 @@ function planCard(plan, partial) {
 
   const actions = [];
   if (f.bookingUrl) {
-    actions.push(`<a class="btn btn-ghost" href="${esc(f.bookingUrl)}" target="_blank" rel="noopener" onclick="return confirm('Tautan ini adalah demo sintetis dari provider mock, bukan booking asli. Lanjut?')">Buka sumber booking (demo)</a>`);
+    const isMock = (f.providerId || "").startsWith("mock");
+    const confirmMsg = isMock
+      ? "Tautan ini adalah demo sintetis dari provider mock, bukan booking asli. Lanjut?"
+      : "Buka tautan booking di provider untuk memeriksa harga dan ketersediaan terkini? (Produk tidak memproses pembayaran.)";
+    const btnLabel = isMock ? "Buka sumber booking (demo)" : "Buka sumber booking";
+    actions.push(`<a class="btn btn-ghost" href="${esc(f.bookingUrl)}" target="_blank" rel="noopener" onclick="return confirm('${confirmMsg}')">${btnLabel}</a>`);
   }
   if (!partial && total != null) {
     actions.push(`<button type="button" class="btn btn-ghost" data-watch-plan="${esc(plan.id)}">Pantau paket ini</button>`);

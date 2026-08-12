@@ -23,6 +23,7 @@ export interface AppConfig {
   alertCooldownHours: number;
   realProvidersEnabled: boolean;
   travelpayoutsToken: string | null;
+  travelpayoutsEnabled: boolean;
   duffelToken: string | null;
   duffelStaysEnabled: boolean;
   serpapiKey: string | null;
@@ -31,6 +32,9 @@ export interface AppConfig {
   handoffAllowedHosts: string[];
   materialDropPercent: number;
   requestCacheTtlMs: number;
+  realProviderVerifyCap: number;
+  realProviderCalendarDaysCap: number;
+  fxCacheTtlMs: number;
 }
 
 function intFromEnv(env: NodeJS.ProcessEnv, key: string, fallback: number, min: number, max: number): number {
@@ -85,13 +89,20 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     alertCooldownHours: intFromEnv(env, "ALERT_COOLDOWN_HOURS", 24, 1, 720),
     realProvidersEnabled: (env.REAL_PROVIDERS_ENABLED ?? "false").toLowerCase() === "true",
     travelpayoutsToken: env.TRAVELPAYOUTS_TOKEN ?? null,
+    // Travelpayouts needs its own opt-in: the route-aware smoke test (2026-08-12)
+    // showed the free tier only serves RU-market cache, empty for CGK->JED. It
+    // stays disabled until a route test passes (e.g. paid tier with ID coverage).
+    travelpayoutsEnabled: (env.TRAVELPAYOUTS_ENABLED ?? "false").toLowerCase() === "true",
     duffelToken: env.DUFFEL_TOKEN ?? null,
     duffelStaysEnabled: (env.DUFFEL_STAYS_ENABLED ?? "false").toLowerCase() === "true",
     serpapiKey: env.SERPAPI_API_KEY ?? null,
     fxApiKey: env.FX_API_KEY ?? null,
-    fxApiUrl: env.FX_API_URL ?? "https://open.er-api.com/v6/latest/USD",
+    fxApiUrl: env.FX_API_URL ?? "https://api.exchangerate.host/live",
     handoffAllowedHosts: parseHostList(env.HANDOFF_ALLOWED_HOSTS, "mock.example"),
     materialDropPercent: intFromEnv(env, "MATERIAL_DROP_PERCENT", 3, 1, 50),
     requestCacheTtlMs: intFromEnv(env, "REQUEST_CACHE_TTL_MS", 15 * 60_000, 1_000, 86_400_000),
+    realProviderVerifyCap: intFromEnv(env, "REAL_PROVIDER_VERIFY_CAP", 2, 1, 10),
+    realProviderCalendarDaysCap: intFromEnv(env, "REAL_PROVIDER_CALENDAR_DAYS_CAP", 5, 1, 14),
+    fxCacheTtlMs: intFromEnv(env, "FX_CACHE_TTL_MS", 3_600_000, 60_000, 86_400_000),
   };
 }

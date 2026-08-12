@@ -7,7 +7,9 @@ import type {
 } from "./types.js";
 
 export function flightPriceCompleteness(flight: FlightObservation): PriceCompleteness {
-  if (flight.mandatoryFeeAmountMinor == null) {
+  // Providers that include taxes and fees in their total (Google Flights) are
+  // COMPLETE even without an itemized fee line; missing data is never zeroed.
+  if (flight.mandatoryFeeAmountMinor == null && !flight.feesIncludedInTotal) {
     return "PARTIAL_FEES_UNKNOWN";
   }
   if (flight.normalizedIdrAmountMinor == null || flight.fxRate == null) {
@@ -17,7 +19,7 @@ export function flightPriceCompleteness(flight: FlightObservation): PriceComplet
 }
 
 export function hotelPriceCompleteness(hotel: HotelObservation): PriceCompleteness {
-  if (hotel.mandatoryFeeAmountMinor == null) {
+  if (hotel.mandatoryFeeAmountMinor == null && !hotel.feesIncludedInTotal) {
     return "PARTIAL_FEES_UNKNOWN";
   }
   if (hotel.normalizedIdrAmountMinor == null || hotel.fxRate == null) {

@@ -76,7 +76,10 @@ describe("Provider adapter contract fixtures (offline, no tokens)", () => {
   });
 
   it("Travelpayouts provider is disabled without the activation gate and throws ACCESS_NOT_CONFIGURED", async () => {
-    const config = loadConfig({ TRAVELPAYOUTS_TOKEN: "test-token" });
+    // Token + master switch alone are not enough: the per-provider opt-in is
+    // required because the route-aware smoke test showed the free tier serves
+    // only the RU-market cache (empty for Indonesian routes).
+    const config = loadConfig({ TRAVELPAYOUTS_TOKEN: "test-token", REAL_PROVIDERS_ENABLED: "true" });
     const provider = new TravelpayoutsFlightProvider(config);
     expect(provider.enabled).toBe(false);
     await expect(
@@ -186,10 +189,11 @@ describe("Provider adapter contract fixtures (offline, no tokens)", () => {
     expect(gated.flightProviders.every((p) => p.enabled === (p.id === "mock-flight"))).toBe(true);
     expect(activeFlightProvider(gated).id).toBe(MOCK_FLIGHT_PROVIDER_ID);
 
-    // Master switch + token: real adapter becomes active.
+    // Master switch + token + per-provider opt-in: real adapter becomes active.
     const live = createRegistry(
       loadConfig({
         TRAVELPAYOUTS_TOKEN: "t",
+        TRAVELPAYOUTS_ENABLED: "true",
         REAL_PROVIDERS_ENABLED: "true",
         MOCK_MODE: "true",
       }),

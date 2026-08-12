@@ -167,7 +167,16 @@ export class CoverageService {
   }
 
   async runDueScans(now: Date): Promise<CoverageScanResult> {
-    const flight = await this.runFlightCoverageScan(now);
+    // The 370-day rolling scan is a mock/cheap-API feature. With a paid-per-call
+    // real provider (e.g. SerpAPI free tier is 250 searches/month) a full fill
+    // would burn the whole budget in one run, so the automated flight scan is
+    // skipped while a real provider is active. Hotel frontier marking is free
+    // (no provider calls) and keeps running.
+    const flightProvider = activeFlightProvider(this.registry);
+    const flight =
+      flightProvider && flightProvider.mode === "MOCK"
+        ? await this.runFlightCoverageScan(now)
+        : { scanRunId: "skipped-real-provider", flightScanned: 0, flightRecorded: 0, hotelFrontierMarked: 0, nextEligibleAt: "" };
     const frontier = await this.refreshHotelFrontier(now);
     return {
       scanRunId: flight.scanRunId,

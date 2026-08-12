@@ -108,7 +108,13 @@ export class SearchService {
       allCandidates.push(...discovery.candidates);
     }
     allCandidates.sort((a, b) => a.indicativeTotalMinor - b.indicativeTotalMinor);
-    const topCandidates = allCandidates.slice(0, this.config.maxFlightsForHotelEnrichmentPerSearch);
+    // With a paid-per-call real provider, verify only the top few candidates;
+    // mock mode verifies the full budget for the demo dataset.
+    const verifyCap =
+      flightProvider.mode === "MOCK"
+        ? this.config.maxFlightsForHotelEnrichmentPerSearch
+        : this.config.realProviderVerifyCap;
+    const topCandidates = allCandidates.slice(0, verifyCap);
 
     // 2. Selective live verification of the top candidates.
     const flightObservations: FlightObservation[] = [];
@@ -303,13 +309,25 @@ export class SearchService {
     }
     const input = validated.data;
 
+    const flightProvider = activeFlightProvider(this.registry);
     const requestedDays = clampScanDays(raw, this.config.calendarScanDaysMax);
+    // Real providers are paid per call: cap the scan window so one calendar
+    // view cannot burn the whole quota. Mock scans the full configured window.
+    const effectiveDays =
+      flightProvider && flightProvider.mode !== "MOCK"
+        ? Math.min(requestedDays, this.config.realProviderCalendarDaysCap)
+        : requestedDays;
     const start = input.departureStart;
-    const cappedEnd = addDays(start, requestedDays - 1);
+    const cappedEnd = addDays(start, effectiveDays - 1);
     const end = cappedEnd < input.departureEnd ? cappedEnd : input.departureEnd;
     const dates = enumerateDates(start, end);
 
     const warnings = new Set<string>();
+    if (effectiveDays < requestedDays) {
+      warnings.add(
+        `Kalender dibatasi ${effectiveDays} hari untuk provider real (kuota per-panggilan); rentang penuh tersedia di mode mock.`,
+      );
+    }
     const days: CalendarDaySummary[] = [];
     let observedAt = "";
     let activeProviders: CalendarResponse["activeProviders"] = [];
@@ -505,7 +523,11 @@ export class SearchService {
       now,
     });
     const sorted = [...discovery.candidates].sort((a, b) => a.indicativeTotalMinor - b.indicativeTotalMinor);
-    const top = sorted.slice(0, this.config.maxFlightsForHotelEnrichmentPerSearch);
+    const verifyCap =
+      flightProvider.mode === "MOCK"
+        ? this.config.maxFlightsForHotelEnrichmentPerSearch
+        : this.config.realProviderVerifyCap;
+    const top = sorted.slice(0, verifyCap);
     let best: FlightObservation | null = null;
     for (const candidate of top) {
       try {

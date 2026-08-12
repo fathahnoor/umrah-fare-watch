@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { loadConfig } from "../src/config.js";
+import { flightPriceCompleteness, hotelPriceCompleteness } from "../src/domain/completeness.js";
 import { SERPAPI_FLIGHT_PROVIDER_ID, mapGoogleFlightsObservation, mapGoogleFlightsPayload, SerpapiFlightProvider } from "../src/providers/serpapi/serpapiFlightProvider.js";
 import { SERPAPI_HOTEL_PROVIDER_ID, mapGoogleHotelsPayload, SerpapiHotelProvider, straightLineKm } from "../src/providers/serpapi/serpapiHotelProvider.js";
 import type { FlightCandidate } from "../src/domain/types.js";
@@ -121,22 +122,25 @@ describe("SerpAPI adapter contract fixtures (offline, no key)", () => {
           {
             name: "Swissotel Makkah",
             property_token: "swissotel-makkah",
-            location: {
-              latitude: 21.421,
-              longitude: 39.826,
-              address: { address_line: "Ibrahim Al Khalil St" },
-            },
-            ratings: { stars: 5, rating: 9.1, reviews: 1200 },
-            price: { current_price: { amount: 180, currency: "USD" }, amount: 190 },
+            gps_coordinates: { latitude: 21.421, longitude: 39.826 },
+            ratings: [
+              { stars: 5, count: 300 },
+              { stars: 4, count: 50 },
+            ],
+            reviews: 1200,
+            total_rate: { lowest: "US$180", extracted_lowest: 180 },
+            rate_per_night: { lowest: "US$36", extracted_lowest: 36 },
             check_in_time: "3:00 PM",
             check_out_time: "12:00 PM",
+            link: "https://www.google.com/travel/hotels/swissotel",
           },
           {
             // Outside radius: 21.5, 39.9 is ~12 km away from Makkah center.
             name: "Far Hotel",
             property_token: "far-hotel",
-            location: { latitude: 21.5, longitude: 39.9 },
-            price: { current_price: { amount: 60, currency: "USD" }, amount: 60 },
+            gps_coordinates: { latitude: 21.5, longitude: 39.9 },
+            total_rate: { lowest: "US$60", extracted_lowest: 60 },
+            rate_per_night: { lowest: "US$12", extracted_lowest: 12 },
           },
           {
             // No price: must be skipped.
@@ -158,6 +162,68 @@ describe("SerpAPI adapter contract fixtures (offline, no key)", () => {
     expect(near?.verificationStatus).toBe("LIVE_VERIFIED");
     expect(far?.straightLineDistanceKm).toBeGreaterThan(10);
     expect(far?.normalizedIdrAmountMinor).not.toBeNull();
+  });
+
+  it("feesIncludedInTotal makes the plan total COMPLETE without an itemized fee line", () => {
+    const candidate: FlightCandidate = {
+      id: "serpapi-cand-2",
+      providerId: SERPAPI_FLIGHT_PROVIDER_ID,
+      origin: "CGK",
+      outboundAirport: "JED",
+      returnAirport: "JED",
+      departureLocalDate: "2029-12-05",
+      returnLocalDate: "2029-12-15",
+      pattern: "ROUNDTRIP_JED",
+      stopCount: 0,
+      durationMinutes: 570,
+      indicativeTotalMinor: 0,
+      currency: "USD",
+      observedAt: NOW.toISOString(),
+      expiresAt: new Date(NOW.getTime() + 3_600_000).toISOString(),
+      verificationStatus: "INDICATIVE",
+      canonicalKey: "serpapi|CGK|JED|2029-12-05|2029-12-15|ROUNDTRIP_JED",
+    };
+    const obs = mapGoogleFlightsObservation(
+      { flights: [], price: 100 },
+      candidate,
+      { candidate, adults: 1, childrenAges: [], cabin: "economy", now: NOW },
+      NOW.toISOString(),
+    );
+    expect(obs.feesIncludedInTotal).toBe(true);
+    expect(obs.mandatoryFeeAmountMinor).toBeNull();
+    expect(flightPriceCompleteness(obs)).toBe("COMPLETE");
+    // A provider without the flag and without fees stays PARTIAL_FEES_UNKNOWN.
+    expect(flightPriceCompleteness({ ...obs, feesIncludedInTotal: false })).toBe("PARTIAL_FEES_UNKNOWN");
+    // Hotel completeness follows the same rule.
+    const hotelObs = mapGoogleHotelsPayload(
+      {
+        properties: [
+          {
+            name: "Swissotel Makkah",
+            property_token: "swissotel-makkah",
+            gps_coordinates: { latitude: 21.421, longitude: 39.826 },
+            total_rate: { lowest: "US$180", extracted_lowest: 180 },
+            rate_per_night: { lowest: "US$36", extracted_lowest: 36 },
+          },
+        ],
+      },
+      {
+        providerId: SERPAPI_HOTEL_PROVIDER_ID,
+        city: "MAKKAH",
+        checkIn: "2029-12-06",
+        checkOut: "2029-12-11",
+        adults: 1,
+        childrenAges: [],
+        rooms: 1,
+        radiusKm: 5,
+        freeCancellationOnly: false,
+        currency: "IDR",
+        now: NOW,
+      },
+      NOW,
+    )[0] as NonNullable<ReturnType<typeof mapGoogleHotelsPayload>[number]>;
+    expect(hotelObs.feesIncludedInTotal).toBe(true);
+    expect(hotelPriceCompleteness(hotelObs)).toBe("COMPLETE");
   });
 
   it("straightLineKm returns 0 for the same point and sane values for known pairs", () => {

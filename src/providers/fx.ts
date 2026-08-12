@@ -1,6 +1,7 @@
 // Deterministic mock FX table. Real adapters supply their own FX snapshots
 // with source, rate, and timestamp; these values are clearly synthetic.
 import type { CurrencyCode, FxSnapshot } from "../domain/types.js";
+import { liveFxSnapshot } from "./fxLive.js";
 
 export const MOCK_FX_RATES: Record<CurrencyCode, number> = {
   IDR: 1,
@@ -18,4 +19,41 @@ export function mockFxSnapshot(currency: CurrencyCode, observedAt: string): FxSn
     quote: "IDR",
     observedAt,
   };
+}
+
+export interface FxConfig {
+  fxApiKey: string | null;
+  fxApiUrl: string;
+  fxCacheTtlMs: number;
+}
+
+// Live-rate cache keyed by currency. The free exchangerate.host tier is only
+// ~100 requests/month, so a snapshot is reused for fxCacheTtlMs (default 1h)
+// instead of being fetched per search.
+const fxCache = new Map<string, { snapshot: FxSnapshot; expiresAt: number }>();
+
+/**
+ * Best-effort snapshot: live cached rate when FX_API_KEY is configured,
+ * otherwise the deterministic mock table. Never throws on network failure:
+ * a failed live fetch falls back to mock so a search is never blocked by FX.
+ */
+export async function getFxSnapshot(
+  currency: CurrencyCode,
+  now: Date,
+  config: FxConfig,
+): Promise<FxSnapshot> {
+  if (!config.fxApiKey) {
+    return mockFxSnapshot(currency, now.toISOString());
+  }
+  const cached = fxCache.get(currency);
+  if (cached && cached.expiresAt > now.getTime()) {
+    return cached.snapshot;
+  }
+  try {
+    const snapshot = await liveFxSnapshot(currency, config.fxApiKey, config.fxApiUrl, now);
+    fxCache.set(currency, { snapshot, expiresAt: now.getTime() + config.fxCacheTtlMs });
+    return snapshot;
+  } catch {
+    return mockFxSnapshot(currency, now.toISOString());
+  }
 }

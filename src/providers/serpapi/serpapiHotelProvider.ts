@@ -6,7 +6,8 @@ import type { AppConfig } from "../../config.js";
 import { addDays, todayLocalDate } from "../../domain/dates.js";
 import { MOCK_HOTEL_FRONTIER_DAYS } from "../../domain/horizons.js";
 import { normalizeToIdrMinor } from "../../domain/money.js";
-import { mockFxSnapshot } from "../fx.js";
+import { getFxSnapshot, mockFxSnapshot } from "../fx.js";
+import type { FxSnapshot } from "../../domain/types.js";
 import { ProviderError, type HotelFrontier, type HotelProvider, type HotelSearchInput, type HotelSearchResult, type ProviderHealthSnapshot } from "../types.js";
 import type { HotelObservation, ProviderMode } from "../../domain/types.js";
 import { SerpapiClient } from "./serpapiClient.js";
@@ -22,18 +23,14 @@ const CITY_CENTERS: Record<"MAKKAH" | "MADINAH", { latitude: number; longitude: 
 export interface GoogleHotelsProperty {
   name?: string;
   property_token?: string;
-  location?: {
-    latitude?: number;
-    longitude?: number;
-    address?: { address_line?: string };
-    images?: Array<{ original_image?: string }>;
-  };
-  ratings?: {
-    stars?: number;
-    rating?: number;
-    reviews?: number;
-  };
-  price?: { amount?: number; currency?: string; current_price?: { amount?: number; currency?: string } };
+  gps_coordinates?: { latitude?: number; longitude?: number };
+  ratings?: Array<{ stars?: number; count?: number }>;
+  reviews?: number;
+  overall_rating?: number;
+  hotel_class?: string;
+  total_rate?: { lowest?: string; extracted_lowest?: number };
+  rate_per_night?: { lowest?: string; extracted_lowest?: number };
+  link?: string;
   check_in_time?: string;
   check_out_time?: string;
   [key: string]: unknown;
@@ -65,18 +62,20 @@ export function mapGoogleHotelsPayload(
   payload: GoogleHotelsPayload,
   input: HotelSearchInput,
   now: Date,
+  fx: FxSnapshot = mockFxSnapshot("USD", now.toISOString()),
 ): HotelObservation[] {
   const center = CITY_CENTERS[input.city];
   const observedAt = now.toISOString();
-  const fx = mockFxSnapshot("USD", observedAt);
   const observations: HotelObservation[] = [];
   for (const prop of payload.properties ?? []) {
-    const price = prop.price?.current_price?.amount ?? prop.price?.amount;
+    // Real Google Hotels payload: total_rate.extracted_lowest is the total
+    // stay price; rate_per_night.extracted_lowest is the per-night fallback.
+    const price = prop.total_rate?.extracted_lowest ?? prop.rate_per_night?.extracted_lowest;
     if (price == null) {
       continue;
     }
-    const lat = prop.location?.latitude ?? center.latitude;
-    const lon = prop.location?.longitude ?? center.longitude;
+    const lat = prop.gps_coordinates?.latitude ?? center.latitude;
+    const lon = prop.gps_coordinates?.longitude ?? center.longitude;
     const totalMinor = Math.round(price * 100);
     const nights = Math.max(
       1,
@@ -91,7 +90,7 @@ export function mapGoogleHotelsPayload(
       providerId: SERPAPI_HOTEL_PROVIDER_ID,
       providerOfferId: prop.property_token ?? prop.name ?? "unknown",
       propertyId: prop.property_token ?? prop.name ?? "unknown",
-      propertyName: prop.name ?? "Hotel (Google Hotels)",
+      propertyName: prop.name && prop.name.trim() !== "" ? prop.name : "Hotel (Google Hotels)",
       city: input.city,
       checkInLocalDate: input.checkIn,
       checkOutLocalDate: input.checkOut,
@@ -109,7 +108,9 @@ export function mapGoogleHotelsPayload(
       taxAmountMinor: null,
       mandatoryFeeAmountMinor: null,
       dueNowAmountMinor: null,
-      dueAtPropertyAmountMinor: totalMinor,
+      // Payment terms unknown for Google Hotels results (some are prepaid, some
+      // pay-at-property); never guess a payment split, so both are null.
+      dueAtPropertyAmountMinor: null,
       normalizedIdrAmountMinor: normalizeToIdrMinor(totalMinor, "USD", fx.rateIdrPerMajor),
       fxRate: fx.rateIdrPerMajor,
       fxObservedAt: fx.observedAt,
@@ -121,7 +122,8 @@ export function mapGoogleHotelsPayload(
       expiresAt: new Date(now.getTime() + 6 * 3_600_000).toISOString(),
       cancellation: { freeCancellation: false, deadlineLocalDate: null, description: "Belum diverifikasi" },
       payment: { dueNow: false, dueAtProperty: true, description: "Bayar di properti (indikatif)" },
-      bookingUrl: null,
+      bookingUrl: prop.link ?? null,
+      feesIncludedInTotal: true,
     });
   }
   return observations;
@@ -131,6 +133,7 @@ export class SerpapiHotelProvider implements HotelProvider {
   readonly id = SERPAPI_HOTEL_PROVIDER_ID;
   readonly mode: ProviderMode = "LIVE";
   readonly enabled: boolean;
+  private readonly config: AppConfig;
   private readonly client: SerpapiClient;
   private readonly frontierDays: number;
   private calls = 0;
@@ -138,6 +141,7 @@ export class SerpapiHotelProvider implements HotelProvider {
   private lastSuccessAt: string | null = null;
 
   constructor(config: AppConfig) {
+    this.config = config;
     this.enabled = config.realProvidersEnabled && config.serpapiKey != null;
     this.client = new SerpapiClient(config.serpapiKey);
     this.frontierDays = config.mockHotelFrontierDays ?? MOCK_HOTEL_FRONTIER_DAYS;
@@ -184,7 +188,8 @@ export class SerpapiHotelProvider implements HotelProvider {
       latitude: center.latitude,
       longitude: center.longitude,
     })) as GoogleHotelsPayload;
-    let observations = mapGoogleHotelsPayload(payload, input, input.now);
+    const fx = await getFxSnapshot("USD", input.now, this.config);
+    let observations = mapGoogleHotelsPayload(payload, input, input.now, fx);
     observations = observations
       .filter((o) => o.straightLineDistanceKm <= input.radiusKm)
       .slice(0, 50);

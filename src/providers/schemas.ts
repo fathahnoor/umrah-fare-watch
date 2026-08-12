@@ -41,7 +41,9 @@ export const flightObservationSchema = z.object({
   adults: z.number().int().min(1),
   childrenAges: z.array(z.number().int().min(0).max(17)),
   cabin: cabinSchema,
-  segments: z.array(flightSegmentSchema).min(2),
+  // min(1): SerpAPI Google Flights returns the outbound legs only in the
+  // `flights` array for round trips, so a nonstop round trip yields one leg.
+  segments: z.array(flightSegmentSchema).min(1),
   stopCount: nonNegativeInt,
   durationMinutes: nonNegativeInt,
   outboundArrivalUtcInstant: isoInstant,
@@ -69,6 +71,7 @@ export const flightObservationSchema = z.object({
   conditions: z.array(z.string()),
   baggage: z.array(z.string()),
   schemaVersion: z.string().min(1),
+  feesIncludedInTotal: z.boolean().default(false),
 });
 
 export const hotelObservationSchema = z.object({
@@ -115,4 +118,5 @@ export const hotelObservationSchema = z.object({
     description: z.string(),
   }),
   bookingUrl: z.string().url().nullable(),
+  feesIncludedInTotal: z.boolean().default(false),
 });

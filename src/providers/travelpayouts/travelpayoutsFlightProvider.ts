@@ -40,6 +40,7 @@ export class TravelpayoutsFlightProvider implements FlightProvider {
   readonly id = TRAVELPAYOUTS_PROVIDER_ID;
   readonly mode: ProviderMode = "INDICATIVE";
   readonly enabled: boolean;
+  private readonly config: AppConfig;
   private readonly token: string | null;
   private readonly baseUrl: string;
   private calls = 0;
@@ -47,10 +48,13 @@ export class TravelpayoutsFlightProvider implements FlightProvider {
   private lastSuccessAt: string | null = null;
 
   constructor(config: AppConfig, baseUrl: string = API_BASE) {
+    this.config = config;
     this.token = config.travelpayoutsToken;
-    // Enabled requires the master switch AND a token; access terms must still
-    // be confirmed before flipping REAL_PROVIDERS_ENABLED=true.
-    this.enabled = config.realProvidersEnabled && this.token != null;
+    // Enabled requires the master switch, a token, AND the per-provider opt-in.
+    // The route-aware smoke test (2026-08-12) showed the free tier serves only
+    // the RU-market search cache (empty for CGK->JED), so TRAVELPAYOUTS_ENABLED
+    // stays false until a route test for Indonesian routes passes.
+    this.enabled = config.realProvidersEnabled && this.token != null && config.travelpayoutsEnabled;
     this.baseUrl = baseUrl;
   }
 
@@ -211,7 +215,9 @@ export class TravelpayoutsFlightProvider implements FlightProvider {
         ? null
         : this.token == null
           ? "Token Travelpayouts belum tersedia (TRAVELPAYOUTS_TOKEN)"
-          : "Akses resmi belum dikonfirmasi (REAL_PROVIDERS_ENABLED=false)",
+          : !this.config.travelpayoutsEnabled
+            ? "Tier gratis hanya menyajikan cache pasar RU, rute Indonesia kosong (test 2026-08-12); aktifkan TRAVELPAYOUTS_ENABLED hanya setelah smoke route-aware lulus"
+            : "Akses resmi belum dikonfirmasi (REAL_PROVIDERS_ENABLED=false)",
       adapterVersion: TRAVELPAYOUTS_ADAPTER_VERSION,
       lastSuccessAt: this.lastSuccessAt,
       lastFailureCategory: this.failures > 0 ? "ACCESS_NOT_CONFIGURED" : null,

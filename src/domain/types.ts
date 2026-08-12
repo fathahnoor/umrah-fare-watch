@@ -186,6 +186,10 @@ export interface FlightObservation {
   conditions: string[];
   baggage: string[];
   schemaVersion: string;
+  /** True when the provider's total already includes taxes and fees, so the
+   * plan total is COMPLETE even though mandatoryFeeAmountMinor is null.
+   * Real providers (Google Flights/Hotels) include fees in their total price. */
+  feesIncludedInTotal?: boolean;
 }
 
 export interface HotelProperty {
@@ -249,6 +253,9 @@ export interface HotelObservation {
   cancellation: HotelCancellation;
   payment: HotelPayment;
   bookingUrl: string | null;
+  /** True when the provider's total already includes taxes and fees, so the
+   * plan total is COMPLETE even though mandatoryFeeAmountMinor is null. */
+  feesIncludedInTotal?: boolean;
 }
 
 export interface CalculationSnapshot {

@@ -9,7 +9,8 @@
 import type { AppConfig } from "../../config.js";
 import { addDays } from "../../domain/dates.js";
 import { normalizeToIdrMinor } from "../../domain/money.js";
-import { mockFxSnapshot } from "../fx.js";
+import { getFxSnapshot, mockFxSnapshot } from "../fx.js";
+import type { FxSnapshot } from "../../domain/types.js";
 import { ProviderError, type FlightDiscoveryInput, type FlightDiscoveryResult, type FlightProvider, type FlightVerificationInput, type FlightVerificationResult, type ProviderHealthSnapshot } from "../types.js";
 import type { FlightCandidate, FlightObservation, ProviderMode } from "../../domain/types.js";
 import { patternAirports } from "../travelpayouts/travelpayoutsFlightProvider.js";
@@ -19,6 +20,27 @@ export const SERPAPI_FLIGHT_ADAPTER_VERSION = "serpapi-flights-v1-disabled";
 export const SERPAPI_FLIGHT_PROVIDER_ID = "serpapi-flights";
 
 const OFFER_TTL_MS = 6 * 3_600_000;
+
+/** Default round-trip length in days when no return date is given (umrah trips
+ * are typically 7-14 days). The user picks the exact return in the booking UI. */
+const DEFAULT_TRIP_DAYS = 10;
+
+/** SerpAPI times are airport-local wall time, e.g. "2026-09-15 19:15". Convert
+ * to ISO UTC by treating them as UTC: the app then derives Saudi dates with a
+ * +180 minute offset, which lands on the correct calendar date except for
+ * flights within ~3h of midnight (documented approximation). */
+export function serpapiLocalToIso(time: string): string {
+  const m = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})$/.exec(time);
+  return m ? `${m[1]}T${m[2]}:00Z` : new Date(time).toISOString();
+}
+
+/** The return date to query: the requested return when a window is given,
+ * otherwise departure plus a default trip length. */
+export function serpapiReturnDate(input: { departureStart: string; departureEnd: string }): string {
+  return input.departureEnd !== input.departureStart
+    ? input.departureEnd
+    : addDays(input.departureStart, DEFAULT_TRIP_DAYS);
+}
 
 export interface GoogleFlightsRow {
   flights: Array<{
@@ -33,6 +55,7 @@ export interface GoogleFlightsRow {
   type?: string;
   deep_link?: string;
   booking_token?: string;
+  layovers?: Array<{ duration?: number; name?: string; id?: string }>;
   [key: string]: unknown;
 }
 
@@ -52,34 +75,33 @@ export function mapGoogleFlightsPayload(
 ): FlightCandidate[] {
   const candidates: FlightCandidate[] = [];
   const rows = [...(payload.best_flights ?? []), ...(payload.other_flights ?? [])];
+  const returnDate = serpapiReturnDate(input);
   for (const pattern of input.patterns) {
     const { outboundAirport, returnAirport } = patternAirports(pattern);
     rows.forEach((row, index) => {
       const segments = row.flights ?? [];
       const first = segments[0];
-      const last = segments[segments.length - 1];
       const departureLocalDate = first?.departure_airport?.time?.slice(0, 10) ?? input.departureStart;
-      const returnLocalDate = last?.arrival_airport?.time?.slice(0, 10) ?? input.departureEnd;
       if (row.price == null) {
         return;
       }
       candidates.push({
-        id: `serpapi|${input.origin}|${outboundAirport}|${departureLocalDate}|${returnLocalDate}|${pattern}|${index}`,
+        id: `serpapi|${input.origin}|${outboundAirport}|${departureLocalDate}|${returnDate}|${pattern}|${index}`,
         providerId: SERPAPI_FLIGHT_PROVIDER_ID,
         origin: input.origin,
         outboundAirport,
         returnAirport,
         departureLocalDate,
-        returnLocalDate,
+        returnLocalDate: returnDate,
         pattern,
-        stopCount: segments.length > 1 ? segments.length - 1 : 0,
+        stopCount: row.layovers?.length ?? Math.max(0, segments.length - 1),
         durationMinutes: row.total_duration ?? 0,
         indicativeTotalMinor: Math.round(row.price * 100),
         currency: "USD",
         observedAt: now.toISOString(),
         expiresAt: new Date(now.getTime() + OFFER_TTL_MS).toISOString(),
         verificationStatus: "INDICATIVE",
-        canonicalKey: `serpapi|${input.origin}|${outboundAirport}|${departureLocalDate}|${returnLocalDate}|${pattern}`,
+        canonicalKey: `serpapi|${input.origin}|${outboundAirport}|${departureLocalDate}|${returnDate}|${pattern}`,
       });
     });
   }
@@ -92,10 +114,14 @@ export function mapGoogleFlightsObservation(
   candidate: FlightCandidate,
   input: FlightVerificationInput,
   observedAt: string,
+  fx: FxSnapshot = mockFxSnapshot("USD", observedAt),
 ): FlightObservation {
   const currency = "USD" as const;
   const totalMinor = Math.round((row.price ?? 0) * 100);
-  const fx = mockFxSnapshot(currency, observedAt);
+  // SerpAPI returns the outbound legs only; the return date is the one the
+  // user asked for (see serpapiReturnDate). Return-leg times are approximate:
+  // 09:00 UTC marker lands on the same Saudi calendar date with the +180 offset.
+  const returnDate = candidate.returnLocalDate;
   const segments = (row.flights ?? []).map((seg) => ({
     carrier: seg.airline ?? "Unknown",
     flightNumber: seg.flight_number ?? "0",
@@ -105,9 +131,10 @@ export function mapGoogleFlightsObservation(
     departureOffsetMinutes: 0,
     arrivalLocal: seg.arrival_airport?.time ?? candidate.returnLocalDate,
     arrivalOffsetMinutes: 0,
-    departureUtcInstant: seg.departure_airport?.time ?? "",
-    arrivalUtcInstant: seg.arrival_airport?.time ?? "",
+    departureUtcInstant: seg.departure_airport?.time ? serpapiLocalToIso(seg.departure_airport.time) : `${candidate.departureLocalDate}T00:00:00Z`,
+    arrivalUtcInstant: seg.arrival_airport?.time ? serpapiLocalToIso(seg.arrival_airport.time) : `${candidate.returnLocalDate}T00:00:00Z`,
   }));
+  const last = segments[segments.length - 1];
   return {
     id: `${candidate.id}-obs-${observedAt}`,
     providerId: SERPAPI_FLIGHT_PROVIDER_ID,
@@ -119,18 +146,18 @@ export function mapGoogleFlightsObservation(
     childrenAges: input.childrenAges,
     cabin: input.cabin as FlightObservation["cabin"],
     segments,
-    stopCount: segments.length > 1 ? segments.length - 1 : 0,
+    stopCount: row.layovers?.length ?? Math.max(0, segments.length - 1),
     durationMinutes: row.total_duration ?? candidate.durationMinutes,
-    outboundArrivalUtcInstant: segments[0]?.arrivalUtcInstant ?? "",
+    outboundArrivalUtcInstant: last?.arrivalUtcInstant ?? `${candidate.departureLocalDate}T00:00:00Z`,
     outboundArrivalOffsetMinutes: 180,
-    outboundArrivalSaudiDate: candidate.departureLocalDate,
-    returnDepartureUtcInstant: segments[1]?.departureUtcInstant ?? "",
+    outboundArrivalSaudiDate: last?.arrivalLocal?.slice(0, 10) ?? candidate.departureLocalDate,
+    returnDepartureUtcInstant: `${returnDate}T09:00:00Z`,
     returnDepartureOffsetMinutes: 180,
-    returnDepartureSaudiDate: candidate.returnLocalDate,
+    returnDepartureSaudiDate: returnDate,
     outboundAirport: candidate.outboundAirport,
     returnAirport: candidate.returnAirport,
     departureLocalDate: candidate.departureLocalDate,
-    returnLocalDate: candidate.returnLocalDate,
+    returnLocalDate: returnDate,
     pattern: candidate.pattern,
     originalAmountMinor: totalMinor,
     originalCurrency: currency,
@@ -143,9 +170,14 @@ export function mapGoogleFlightsObservation(
     priceCompleteness: "PARTIAL_FEES_UNKNOWN",
     verificationStatus: "LIVE_VERIFIED",
     bookingUrl: row.deep_link ?? null,
-    conditions: ["Harga dan ketersediaan diambil langsung dari Google Flights"],
+    conditions: [
+      "Harga dan ketersediaan diambil langsung dari Google Flights",
+      "Total sudah termasuk pajak dan biaya",
+      "Tanggal kepulangan sesuai tanggal yang diminta (waktu pasti di halaman booking provider)",
+    ],
     baggage: [],
     schemaVersion: "serpapi-flights-v1",
+    feesIncludedInTotal: true,
   };
 }
 
@@ -153,12 +185,14 @@ export class SerpapiFlightProvider implements FlightProvider {
   readonly id = SERPAPI_FLIGHT_PROVIDER_ID;
   readonly mode: ProviderMode = "LIVE";
   readonly enabled: boolean;
+  private readonly config: AppConfig;
   private readonly client: SerpapiClient;
   private calls = 0;
   private failures = 0;
   private lastSuccessAt: string | null = null;
 
   constructor(config: AppConfig) {
+    this.config = config;
     this.enabled = config.realProvidersEnabled && config.serpapiKey != null;
     this.client = new SerpapiClient(config.serpapiKey);
   }
@@ -179,7 +213,7 @@ export class SerpapiFlightProvider implements FlightProvider {
       departure_id: input.origin,
       arrival_id: "JED",
       outbound_date: input.departureStart,
-      return_date: input.departureEnd,
+      return_date: serpapiReturnDate(input),
       type: "1",
       currency: "USD",
       hl: "en",
@@ -226,7 +260,8 @@ export class SerpapiFlightProvider implements FlightProvider {
       throw new ProviderError("NOT_FOUND", "Offer Google Flights tidak ditemukan saat verifikasi", { retryable: false });
     }
     this.lastSuccessAt = observedAt;
-    return { observation: mapGoogleFlightsObservation(row, candidate, input, observedAt) };
+    const fx = await getFxSnapshot("USD", input.now, this.config);
+    return { observation: mapGoogleFlightsObservation(row, candidate, input, observedAt, fx) };
   }
 
   async health(): Promise<ProviderHealthSnapshot> {
