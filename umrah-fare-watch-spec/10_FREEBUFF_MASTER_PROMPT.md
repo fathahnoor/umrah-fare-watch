@@ -156,7 +156,7 @@ Default alert cooldown is 24 hours. A comparable complete total drop of at least
 
 ### UX rules
 
-Use `Cari Total Umrah Termurah` as the homepage headline. Show complete total, flight subtotal, Makkah subtotal, Madinah subtotal, providers, freshness, completeness, included, and Not included. Separate partial alternatives visually. Keep width 360px usable. Do not rely on color alone. Show the required price disclaimer and hotel reservation confirmation reminder.
+Use `Cari Biaya Umrah Termurah` as the homepage headline. Show complete total, flight subtotal, Makkah subtotal, Madinah subtotal, providers, freshness, completeness, included, and Not included. Separate partial alternatives visually. Keep width 360px usable. Do not rely on color alone. Show the required price disclaimer and hotel reservation confirmation reminder.
 
 ### Security and non-goals
 

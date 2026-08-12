@@ -114,7 +114,7 @@ test ID, status, command or manual procedure, exit code, timestamp, relevant out
 
 ## 11. UI, Responsive, and Accessibility
 
-- [ ] `MUST UX-01` Headline is `Cari Total Umrah Termurah`.
+- [ ] `MUST UX-01` Headline is `Cari Biaya Umrah Termurah`.
 - [ ] `MUST UX-02` Complete card shows total, three subtotals, providers, freshness, included, and Not included.
 - [ ] `MUST UX-03` Component breakdown adds up to the displayed total.
 - [ ] `MUST UX-04` Partial total is not visually presented as complete.

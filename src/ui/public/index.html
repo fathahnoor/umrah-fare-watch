@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Umrah Fare Watch - Cari Biaya Umrah Termurah</title>
+  <meta name="description" content="Bandingkan tiket pesawat serta hotel Makkah dan Madinah dalam satu total biaya yang transparan.">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Langsung ke konten</a>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="#top" aria-label="Umrah Fare Watch, kembali ke atas">
+        <span class="brand-mark" aria-hidden="true">&#127974;</span>
+        <span>Umrah Fare Watch</span>
+      </a>
+      <nav aria-label="Navigasi utama" class="main-nav">
+        <a href="#top" aria-current="page">Total Termurah</a>
+        <a href="#kalender">Kalender</a>
+        <a href="#tentang">Tentang</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section id="top" class="hero">
+      <div class="container">
+        <h1>Cari Biaya Umrah Termurah</h1>
+        <p class="hero-copy">Bandingkan tiket pesawat serta hotel Makkah dan Madinah dalam satu total biaya yang transparan.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#search-form">Cari kombinasi</a>
+          <button type="button" class="btn btn-ghost" id="how-calc-toggle" aria-expanded="false" aria-controls="how-calc">
+            Lihat cara menghitung total
+          </button>
+        </div>
+        <p class="provider-line">Membandingkan provider aktif: <strong>Mock Flight</strong> dan <strong>Mock Hotel</strong> (mode demo). Lihat <a href="#tentang">cakupan</a>.</p>
+      </div>
+    </section>
+
+    <section id="how-calc" class="how-calc" hidden>
+      <div class="container">
+        <h2>Cara menghitung total</h2>
+        <p>Total perjalanan = <strong>Tiket untuk semua penumpang</strong> + <strong>Hotel Makkah</strong> (semua kamar, semua malam) + <strong>Hotel Madinah</strong> (semua kamar, semua malam). Harga dinormalisasi ke Rupiah (IDR) memakai nilai tukar pada waktu observasi.</p>
+        <p>Not included: transfer darat, visa, makanan di luar rate, bagasi atau fee yang tidak dinyatakan provider, asuransi, dan pengeluaran pribadi. Item yang belum lengkap biayanya tidak pernah dihitung sebagai nol.</p>
+      </div>
+    </section>
+
+    <section class="search-section" aria-labelledby="search-title">
+      <div class="container">
+        <h2 id="search-title">Pencarian perjalanan</h2>
+        <form id="search-form" novalidate>
+          <fieldset class="form-group">
+            <legend>Perjalanan</legend>
+            <div class="form-row">
+              <div class="field">
+                <label id="origins-label">Bandara asal</label>
+                <div class="checkbox-grid" role="group" aria-labelledby="origins-label">
+                  <label class="check"><input type="checkbox" name="origins" value="CGK" checked> Jakarta (CGK)</label>
+                  <label class="check"><input type="checkbox" name="origins" value="SUB"> Surabaya (SUB)</label>
+                  <label class="check"><input type="checkbox" name="origins" value="DPS"> Denpasar (DPS)</label>
+                  <label class="check"><input type="checkbox" name="origins" value="KNO"> Medan (KNO)</label>
+                  <label class="check"><input type="checkbox" name="origins" value="BPN"> Balikpapan (BPN)</label>
+                  <label class="check"><input type="checkbox" name="origins" value="UPG"> Makassar (UPG)</label>
+                </div>
+                <p class="field-error" data-for="origins" role="alert"></p>
+              </div>
+              <div class="field">
+                <label for="departureStart">Tanggal berangkat dari</label>
+                <input type="date" id="departureStart" name="departureStart">
+                <p class="field-error" data-for="departureStart" role="alert"></p>
+              </div>
+              <div class="field">
+                <label for="departureEnd">Sampai dengan</label>
+                <input type="date" id="departureEnd" name="departureEnd">
+                <p class="field-error" data-for="departureEnd" role="alert"></p>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="field">
+                <label id="patterns-label">Pola perjalanan</label>
+                <div class="checkbox-grid two-col" role="group" aria-labelledby="patterns-label">
+                  <label class="check"><input type="checkbox" name="patterns" value="ROUNDTRIP_JED" checked> Pulang-pergi Jeddah</label>
+                  <label class="check"><input type="checkbox" name="patterns" value="ROUNDTRIP_MED"> Pulang-pergi Madinah</label>
+                  <label class="check"><input type="checkbox" name="patterns" value="OPENJAW_JED_MED"> Masuk Jeddah, pulang Madinah</label>
+                  <label class="check"><input type="checkbox" name="patterns" value="OPENJAW_MED_JED"> Masuk Madinah, pulang Jeddah</label>
+                </div>
+                <p class="field-error" data-for="patterns" role="alert"></p>
+              </div>
+              <div class="field">
+                <label for="cityOrder">Urutan kota</label>
+                <select id="cityOrder" name="cityOrder">
+                  <option value="AUTO">Otomatis mengikuti bandara kedatangan</option>
+                  <option value="MAKKAH_FIRST">Makkah dahulu</option>
+                  <option value="MADINAH_FIRST">Madinah dahulu</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="cabin">Kelas kabin</label>
+                <select id="cabin" name="cabin">
+                  <option value="economy">Ekonomi</option>
+                  <option value="premium_economy">Ekonomi premium</option>
+                  <option value="business">Bisnis</option>
+                  <option value="first">First</option>
+                </select>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="form-group">
+            <legend>Tamu dan kamar</legend>
+            <div class="form-row">
+              <div class="field">
+                <label for="adults">Jumlah dewasa</label>
+                <input type="number" id="adults" name="adults" min="1" max="20" value="1" inputmode="numeric">
+                <p class="field-error" data-for="adults" role="alert"></p>
+              </div>
+              <div class="field">
+                <label for="childrenCount">Jumlah anak</label>
+                <input type="number" id="childrenCount" name="childrenCount" min="0" max="10" value="0" inputmode="numeric">
+              </div>
+              <div class="field">
+                <label for="rooms">Jumlah kamar</label>
+                <input type="number" id="rooms" name="rooms" min="1" max="10" value="1" inputmode="numeric">
+                <p class="field-error" data-for="rooms" role="alert"></p>
+              </div>
+            </div>
+            <div class="field" id="children-ages-wrap" hidden>
+              <label id="children-ages-label">Umur setiap anak (tahun)</label>
+              <div id="children-ages" class="ages-row" role="group" aria-labelledby="children-ages-label"></div>
+              <p class="hint">Setiap anak memerlukan umur yang valid agar harga dapat dihitung.</p>
+            </div>
+            <p class="hint">Minimal satu dewasa diperlukan per kamar.</p>
+          </fieldset>
+
+          <fieldset class="form-group">
+            <legend>Durasi kota</legend>
+            <div class="form-row">
+              <div class="field">
+                <label for="makkahNights">Malam di Makkah</label>
+                <input type="number" id="makkahNights" name="makkahNights" min="1" max="30" value="5" inputmode="numeric">
+                <p class="field-error" data-for="makkahNights" role="alert"></p>
+              </div>
+              <div class="field">
+                <label for="madinahNights">Malam di Madinah</label>
+                <input type="number" id="madinahNights" name="madinahNights" min="1" max="30" value="4" inputmode="numeric">
+                <p class="field-error" data-for="madinahNights" role="alert"></p>
+              </div>
+              <div class="field">
+                <p class="nights-summary">Total malam: <strong id="totalNights">9</strong></p>
+                <p class="city-preview" id="cityPreview">Urutan kota: Makkah lalu Madinah</p>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="form-group">
+            <legend>Preferensi</legend>
+            <div class="form-row">
+              <div class="field">
+                <label for="maxStops">Maksimal transit (kosong = bebas)</label>
+                <select id="maxStops" name="maxStops">
+                  <option value="">Bebas</option>
+                  <option value="0">Langsung</option>
+                  <option value="1">Maksimal 1</option>
+                  <option value="2">Maksimal 2</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="maxLayoverMinutes">Maksimal lama transit (menit)</label>
+                <input type="number" id="maxLayoverMinutes" name="maxLayoverMinutes" min="0" max="1440" placeholder="Kosong = bebas" inputmode="numeric">
+              </div>
+              <div class="field">
+                <label for="maxTripDurationMinutes">Maksimal durasi perjalanan (menit)</label>
+                <input type="number" id="maxTripDurationMinutes" name="maxTripDurationMinutes" min="0" max="5760" placeholder="Kosong = bebas" inputmode="numeric">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="field">
+                <label for="makkahRadiusKm">Radius hotel Makkah (km)</label>
+                <input type="number" id="makkahRadiusKm" name="makkahRadiusKm" min="1" max="25" value="5" inputmode="decimal">
+              </div>
+              <div class="field">
+                <label for="madinahRadiusKm">Radius hotel Madinah (km)</label>
+                <input type="number" id="madinahRadiusKm" name="madinahRadiusKm" min="1" max="25" value="5" inputmode="decimal">
+              </div>
+              <div class="field">
+                <label class="check-inline"><input type="checkbox" id="freeCancellationOnly" name="freeCancellationOnly"> Hanya pembatalan gratis</label>
+              </div>
+            </div>
+          </fieldset>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">Cari kombinasi</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section id="progress-panel" class="progress-panel" hidden aria-live="polite" aria-atomic="false">
+      <div class="container">
+        <h2 class="sr-only">Status pencarian</h2>
+        <ol id="progress-steps" class="progress-steps"></ol>
+      </div>
+    </section>
+
+    <section id="results" class="results" hidden aria-live="polite">
+      <div class="container">
+        <div id="results-header" class="results-header"></div>
+        <div id="summary-cards" class="summary-cards"></div>
+        <h2 class="results-heading">Kombinasi total termurah yang ditemukan</h2>
+        <p class="results-sub">Urutan: total lengkap terendah, dengan tie-break verifikasi, transit, durasi, dan pembatalan. Hanya plan berstatus lengkap (COMPLETE) yang masuk peringkat utama.</p>
+        <div id="plan-list" class="plan-list"></div>
+        <div id="partial-section" hidden>
+          <h2 class="results-heading">Mungkin lebih murah, tetapi biaya belum lengkap</h2>
+          <p class="results-sub">Kombinasi ini belum dapat dijumlahkan sebagai total lengkap karena ada biaya atau komponen yang belum diketahui. Nilai yang hilang tidak pernah dihitung sebagai nol.</p>
+          <div id="partial-list" class="plan-list"></div>
+        </div>
+        <div id="warnings" class="warnings" hidden></div>
+        <div class="disclaimer" id="results-disclaimer"></div>
+      </div>
+    </section>
+
+    <section id="kalender" class="section-block" aria-labelledby="kalender-title">
+      <div class="container">
+        <h2 id="kalender-title">Kalender dan status cakupan</h2>
+        <p>Kalender penuh 365 hari masih dalam pengembangan. Status cakupan per tanggal saat ini:</p>
+        <ul class="status-legend">
+          <li><span class="status-badge" data-state="HAS_RESULT">Tersedia</span> Total lengkap atau komponen tersedia untuk tanggal ini</li>
+          <li><span class="status-badge" data-state="NOT_SCANNED">Belum dipindai</span> Belum dipindai untuk kombinasi ini</li>
+          <li><span class="status-badge" data-state="NO_RESULT">Tanpa hasil</span> Provider aktif sudah dicari, belum ada hasil</li>
+          <li><span class="status-badge" data-state="NOT_YET_SEARCHABLE">Belum bisa dicari</span> Tanggal di luar jangkauan pencarian hotel (frontier)</li>
+          <li><span class="status-badge" data-state="PROVIDER_UNAVAILABLE">Provider sibuk</span> Provider sedang tidak dapat digunakan</li>
+        </ul>
+        <p>Flight dan hotel memakai horizon terpisah. Sebuah tanggal bisa dapat dicari untuk tiket tetapi belum untuk hotel, dan sebaliknya.</p>
+      </div>
+    </section>
+
+    <section id="tentang" class="section-block" aria-labelledby="tentang-title">
+      <div class="container">
+        <h2 id="tentang-title">Tentang Umrah Fare Watch</h2>
+        <p><strong>Termurah yang ditemukan</strong> berarti harga terendah dari provider yang aktif pada waktu observasi dengan constraint pencarian Anda, bukan jaminan termurah di seluruh internet.</p>
+        <p>Setiap hasil menampilkan provider yang tercakup, waktu observasi, status verifikasi, kelengkapan biaya, dan batasan data. Produk tidak menjual tiket, memproses pembayaran, atau menangani visa dan paspor.</p>
+        <p>Saat ini aplikasi berjalan dalam <strong>mode demo (mock)</strong> tanpa kredensial atau jaringan. Integrasi provider real hanya diaktifkan setelah akses resmi dan uji server-side berhasil.</p>
+        <div class="disclaimer" id="about-disclaimer"></div>
+        <div class="hotel-reminder" id="hotel-reminder"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="disclaimer" id="footer-disclaimer"></div>
+      <p class="footer-note">Umrah Fare Watch membandingkan data dari provider aktif, bukan seluruh penawaran di internet. Mode demo memakai data sintetis.</p>
+    </div>
+  </footer>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

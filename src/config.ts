@@ -37,7 +37,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   return {
     port: intFromEnv(env, "PORT", 3000, 1, 65535),
     dbPath: env.DB_PATH ?? path.resolve(process.cwd(), "data", "umrah-fare-watch.db"),
-    publicDir: env.PUBLIC_DIR ?? path.resolve(here, "..", "ui", "public"),
+    publicDir: env.PUBLIC_DIR ?? path.resolve(here, "ui", "public"),
     mockMode: (env.MOCK_MODE ?? "true").toLowerCase() !== "false",
     userHorizonDays: intFromEnv(env, "USER_HORIZON_DAYS", 365, 30, 730),
     technicalFlightHorizonDays: intFromEnv(env, "TECHNICAL_FLIGHT_HORIZON_DAYS", 370, 31, 800),

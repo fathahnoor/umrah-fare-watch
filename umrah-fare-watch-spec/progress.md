@@ -1,5 +1,18 @@
 # Progress Log
 
+## Session: 2026-08-12 (App Implementation Started)
+
+- **Status:** in progress
+- Actions taken:
+  - Git repo diinisialisasi di akar workspace dan dipush ke `fathahnoor/umrah-fare-watch`.
+  - Git identity commit ditetapkan `fathahnoor` / `fathahnoor@users.noreply.github.com` atas instruksi user (jangan pakai nama panjang). Tercatat di profil-fathah v3.17.
+  - Preferensi push berkala per milestone kecil tercatat di profil-fathah v3.17.
+  - Scaffold dipilih: TypeScript + Express 5, sqlite via `node:sqlite` (tanpa native dep), Vitest, vanilla HTML/CSS/JS client. Keputusan dicatat karena tidak ada scaffold sebelumnya.
+  - Milestone 1 (domain types, mock providers, Trip Composer, store, search API) selesai dan dipush.
+  - Milestone 2 (UI halaman pencarian, progress, results, disclaimer) selesai, identitas commit `fathahnoor`.
+  - **Produk decision change (approval user 12 Agu 2026):** headline homepage diubah dari `Cari Total Umrah Termurah` menjadi `Cari Biaya Umrah Termurah` karena bahasanya dinilai janggal (revisi setelah umpan balik user). Perubahan disinkronkan ke `06_UI_UX_SPEC.md`, `09_ACCEPTANCE_TESTS.md` (`MUST UX-01`), `10_FREEBUFF_MASTER_PROMPT.md`, dan `tools/validate-spec.ps1`. Arsip dan catatan verifikasi lama tidak diubah karena merupakan bukti historis.
+- Next: test suite acceptance, eslint, README, handoff notes, push berikutnya.
+
 ## Session: 2026-08-11
 
 ### Phase 2: Desain Revisi

@@ -189,7 +189,7 @@ export class MockHotelProvider implements HotelProvider {
     const providerOfferId = stableId("offer", property.propertyId, input.checkIn, input.checkOut, input.rooms, input.adults, children || "0");
 
     return {
-      id: `${providerOfferId}-obs`,
+      id: `${providerOfferId}-obs-${now.getTime()}`,
       providerId: this.id,
       providerOfferId,
       propertyId: property.propertyId,

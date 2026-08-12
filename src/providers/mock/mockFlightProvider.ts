@@ -237,7 +237,7 @@ export class MockFlightProvider implements FlightProvider {
     });
 
     const observation: FlightObservation = {
-      id: `${candidate.id}-obs`,
+      id: `${candidate.id}-obs-${now.getTime()}`,
       providerId: this.id,
       providerOfferId: candidate.id,
       candidateId: candidate.id,
