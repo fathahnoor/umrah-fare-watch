@@ -4,6 +4,8 @@ import { DuffelFlightProvider } from "./duffel/duffelFlightProvider.js";
 import { DuffelHotelProvider } from "./duffel/duffelHotelProvider.js";
 import { MockFlightProvider } from "./mock/mockFlightProvider.js";
 import { MockHotelProvider } from "./mock/mockHotelProvider.js";
+import { SerpapiFlightProvider } from "./serpapi/serpapiFlightProvider.js";
+import { SerpapiHotelProvider } from "./serpapi/serpapiHotelProvider.js";
 import { TravelpayoutsFlightProvider } from "./travelpayouts/travelpayoutsFlightProvider.js";
 import type { FlightProvider, HotelProvider, ProviderHealthSnapshot } from "./types.js";
 
@@ -28,7 +30,8 @@ export function createMockRegistry(hotelFrontierDays: number = MOCK_HOTEL_FRONTI
  */
 export function createRegistry(config: AppConfig): ProviderRegistry {
   const realFlightActive =
-    config.realProvidersEnabled && (config.travelpayoutsToken != null || config.duffelToken != null);
+    config.realProvidersEnabled &&
+    (config.travelpayoutsToken != null || config.duffelToken != null || config.serpapiKey != null);
   const mockEnabled = !realFlightActive;
   const flightProviders: FlightProvider[] = [new MockFlightProvider(mockEnabled)];
   const hotelProviders: HotelProvider[] = [new MockHotelProvider(config.mockHotelFrontierDays, mockEnabled)];
@@ -38,6 +41,10 @@ export function createRegistry(config: AppConfig): ProviderRegistry {
   if (config.duffelToken) {
     flightProviders.push(new DuffelFlightProvider(config));
     hotelProviders.push(new DuffelHotelProvider(config));
+  }
+  if (config.serpapiKey) {
+    flightProviders.push(new SerpapiFlightProvider(config));
+    hotelProviders.push(new SerpapiHotelProvider(config));
   }
   return { flightProviders, hotelProviders };
 }

@@ -65,8 +65,21 @@ export class TravelpayoutsFlightProvider implements FlightProvider {
     }
     const token = this.token as string;
     const candidates: FlightCandidate[] = [];
-    for (const pattern of input.patterns) {
+    // prices_for_dates only serves round trips between the same airports, so
+    // only ROUNDTRIP patterns can be mapped honestly (an OPENJAW return leg
+    // comes from a different airport the endpoint cannot express). Dedupe by
+    // destination so ROUNDTRIP_JED and ROUNDTRIP_MED cost exactly one call
+    // each instead of sharing one query per pattern.
+    const patterns = input.patterns.filter(
+      (p) => p === "ROUNDTRIP_JED" || p === "ROUNDTRIP_MED",
+    );
+    const queried = new Set<string>();
+    for (const pattern of patterns) {
       const { outboundAirport } = patternAirports(pattern);
+      if (queried.has(outboundAirport)) {
+        continue;
+      }
+      queried.add(outboundAirport);
       const url = new URL(this.baseUrl);
       url.searchParams.set("origin", input.origin);
       url.searchParams.set("destination", outboundAirport);
@@ -76,6 +89,7 @@ export class TravelpayoutsFlightProvider implements FlightProvider {
       url.searchParams.set("market", "id");
       url.searchParams.set("limit", "30");
       url.searchParams.set("sorting", "price");
+      url.searchParams.set("one_way", "false");
       url.searchParams.set("token", token);
       const res = await fetch(url);
       if (res.status === 429) {
@@ -110,7 +124,8 @@ export class TravelpayoutsFlightProvider implements FlightProvider {
           providerId: this.id,
           origin: input.origin,
           outboundAirport,
-          returnAirport: pattern === "OPENJAW_JED_MED" || pattern === "OPENJAW_MED_JED" ? (pattern === "OPENJAW_JED_MED" ? "MED" : "JED") : outboundAirport,
+          // prices_for_dates serves round trips between the same airports only.
+          returnAirport: outboundAirport,
           departureLocalDate,
           returnLocalDate,
           pattern,

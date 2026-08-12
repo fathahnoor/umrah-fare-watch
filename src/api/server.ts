@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import express from "express";
 import type { NextFunction, Request, Response } from "express";
 import { loadConfig, type AppConfig } from "../config.js";
+import { loadDotEnv } from "../env.js";
 import { createRegistry, type ProviderRegistry } from "../providers/registry.js";
 import { ProviderError } from "../providers/types.js";
 import { AuthService } from "../services/authService.js";
@@ -130,6 +131,7 @@ export function createApp(deps: AppDeps): express.Express {
 }
 
 function main(): void {
+  loadDotEnv();
   const config = loadConfig();
   const db = openDb(config.dbPath);
   const store = new SqliteStore(db);

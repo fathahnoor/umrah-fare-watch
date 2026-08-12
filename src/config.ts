@@ -25,6 +25,7 @@ export interface AppConfig {
   travelpayoutsToken: string | null;
   duffelToken: string | null;
   duffelStaysEnabled: boolean;
+  serpapiKey: string | null;
   fxApiKey: string | null;
   fxApiUrl: string;
   handoffAllowedHosts: string[];
@@ -86,6 +87,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     travelpayoutsToken: env.TRAVELPAYOUTS_TOKEN ?? null,
     duffelToken: env.DUFFEL_TOKEN ?? null,
     duffelStaysEnabled: (env.DUFFEL_STAYS_ENABLED ?? "false").toLowerCase() === "true",
+    serpapiKey: env.SERPAPI_API_KEY ?? null,
     fxApiKey: env.FX_API_KEY ?? null,
     fxApiUrl: env.FX_API_URL ?? "https://open.er-api.com/v6/latest/USD",
     handoffAllowedHosts: parseHostList(env.HANDOFF_ALLOWED_HOSTS, "mock.example"),
