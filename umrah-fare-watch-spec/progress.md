@@ -14,7 +14,14 @@
   - Milestone 3 selesai: 82 test Vitest dipetakan ke ID acceptance (validation, dates, money, ranking, coverage, providers, composer, alerts, API integration), ESLint, `.env.example`, README, dan smoke mock tanpa kredensial. Typecheck, lint, test, dan smoke hijau.
   - Bug yang diperbaiki: derivasi datetime lokal (tz host), tanggal arrival transit, layover durasi round-trip, id observasi yang bertabrakan, dan typo nama field di UI.
   - Repo GitHub: description dan topics diisi; README ter-push; identitas commit `fathahnoor` / `fathah.noor@yahoo.com`.
-- Next: M4 lanjutan (watchlist/alerts worker dan scheduler coverage), M5-M7 (provider real, menunggu akses), M8 (booking handoff), M9 (release gate).
+  - Evaluasi mandiri terhadap spek + best practice lapangan (Google Flights, Skyscanner, Traveloka) mengidentifikasi gap UX utama: tidak ada penemuan tanggal termurah, tidak ada sort/filter hasil, belum ada konteks harga, belum ada watchlist/alerts terhubung.
+  - **Milestone UX (12 Agu 2026):** implementasi rekomendasi positif tanpa approval.
+    - Kalender harga (cheapest-date): endpoint `POST /api/search/calendar` memindai tiap tanggal keberangkatan dalam rentang, service `searchCalendar` di `SearchService`, tipe `CalendarDaySummary`/`CalendarResponse`, config `calendarScanDaysMax` (default 30). UI: grid tanggal per bulan, sel termurah ditandai, klik sel mengisi form dan langsung mencari, ringkasan "Tanggal termurah" + selisih vs rata-rata tanggal lain.
+    - Sort/filter hasil: urutkan total naik/turun, durasi, transit; filter "Langsung saja"; catatan jumlah plan yang ditampilkan. Partial tetap dipisah (tidak tertukar).
+    - Konteks harga jujur: kartu featured menampilkan "Termurah dari N paket lengkap yang ditemukan" + estimasi selisih vs rata-rata, dihitung dari data observasi (bukan riwayat palsu).
+    - Minor: tombol "Cari tanggal lain" dan "Cek tanggal termurah" di header hasil; tombol kalender di form dan seksi Kalender harga.
+    - Test baru `tests/api.calendar.test.ts` (4 test): total suite menjadi 86 test. Typecheck, lint, build, smoke, dan spec validator tetap hijau.
+- Next: M4 lanjutan (watchlist/alerts worker dan scheduler coverage, tetap menunggu auth per spek), M5-M7 (provider real, menunggu akses), M8 (booking handoff), M9 (release gate).
 
 ## Session: 2026-08-11
 

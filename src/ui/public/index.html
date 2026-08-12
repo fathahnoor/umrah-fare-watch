@@ -191,7 +191,9 @@
 
           <div class="form-actions">
             <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">Cari kombinasi</button>
+            <button type="button" class="btn btn-ghost btn-lg" id="calendarBtn">Cek tanggal termurah</button>
           </div>
+          <p class="hint" style="text-align:center;margin-top:10px">"Cek tanggal termurah" memindai setiap tanggal keberangkatan dalam rentang di atas dan menampilkan total lengkap per hari di <a href="#kalender">seksi Kalender harga</a>.</p>
         </form>
       </div>
     </section>
@@ -222,8 +224,17 @@
 
     <section id="kalender" class="section-block" aria-labelledby="kalender-title">
       <div class="container">
-        <h2 id="kalender-title">Kalender dan status cakupan</h2>
-        <p>Kalender penuh 365 hari masih dalam pengembangan. Status cakupan per tanggal saat ini:</p>
+        <h2 id="kalender-title">Kalender harga</h2>
+        <p>Bandingkan <strong>total lengkap</strong> untuk setiap tanggal keberangkatan dalam rentang pencarian Anda. Pindai memakai kriteria yang sama dengan form di atas, termasuk jumlah penumpang, malam per kota, dan radius hotel.</p>
+        <div class="form-actions" style="text-align:left">
+          <button type="button" class="btn btn-primary" id="calendarBtn2">Cek tanggal termurah</button>
+        </div>
+        <p id="calendar-status" role="status" aria-live="polite"></p>
+        <div id="calendar-summary" class="calendar-summary" hidden></div>
+        <div id="calendar-grid" class="calendar-grid" hidden></div>
+        <p id="calendar-note" class="hint" hidden>Klik tanggal untuk langsung mencari kombinasi pada hari itu. Angka adalah total termurah yang ditemukan dari provider aktif, bukan jaminan termurah di seluruh internet.</p>
+        <h3 class="results-heading" style="margin-top:32px">Status cakupan per tanggal</h3>
+        <p>Kalender penuh 365 hari masih dalam pengembangan. Arti status saat ini:</p>
         <ul class="status-legend">
           <li><span class="status-badge" data-state="HAS_RESULT">Tersedia</span> Total lengkap atau komponen tersedia untuk tanggal ini</li>
           <li><span class="status-badge" data-state="NOT_SCANNED">Belum dipindai</span> Belum dipindai untuk kombinasi ini</li>

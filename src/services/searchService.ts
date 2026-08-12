@@ -4,12 +4,15 @@
 import { randomUUID } from "node:crypto";
 import type { AppConfig } from "../config.js";
 import { composeTrip, deriveCityDates, toPlanSummary } from "../composer/tripComposer.js";
+import { addDays } from "../domain/dates.js";
 import { canonicalHotelSearchKey, searchFingerprint } from "../domain/canonical.js";
 import { isExpired } from "../domain/completeness.js";
 import { hotelCheckInState } from "../domain/horizons.js";
 import { compareCompletePlans, toRankablePlan } from "../domain/ranking.js";
 import type {
   AvailabilityState,
+  CalendarDaySummary,
+  CalendarResponse,
   City,
   FlightCandidate,
   FlightObservation,
@@ -21,6 +24,7 @@ import type {
 } from "../domain/types.js";
 import { validateTripSearchInput } from "../domain/validation.js";
 import { collectHealth, type ProviderRegistry } from "../providers/registry.js";
+import { enumerateDates } from "../providers/mock/mockFlightProvider.js";
 import { flightObservationSchema, hotelObservationSchema } from "../providers/schemas.js";
 import { ProviderError, type ProviderHealthSnapshot } from "../providers/types.js";
 import type { ObservationStore } from "../store/repositories.js";
@@ -30,6 +34,10 @@ export const REQUIRED_DISCLAIMER =
 
 export type SearchTripOutcome =
   | { ok: true; response: TripSearchResponse }
+  | { ok: false; issues: ValidationIssue[] };
+
+export type CalendarOutcome =
+  | { ok: true; response: CalendarResponse }
   | { ok: false; issues: ValidationIssue[] };
 
 interface HotelBucket {
@@ -264,6 +272,91 @@ export class SearchService {
     return { ok: true, response };
   }
 
+  /**
+   * Cheapest-date calendar scan: run the same bounded search pipeline once per
+   * departure date and report the cheapest COMPLETE total per day. Each day is
+   * an independent search so provider failure on one date never hides another.
+   */
+  async searchCalendar(raw: unknown, now: Date): Promise<CalendarOutcome> {
+    const validated = validateTripSearchInput(raw, now);
+    if (!validated.ok) {
+      return { ok: false, issues: validated.issues };
+    }
+    const input = validated.data;
+
+    const requestedDays = clampScanDays(raw, this.config.calendarScanDaysMax);
+    const start = input.departureStart;
+    const cappedEnd = addDays(start, requestedDays - 1);
+    const end = cappedEnd < input.departureEnd ? cappedEnd : input.departureEnd;
+    const dates = enumerateDates(start, end);
+
+    const warnings = new Set<string>();
+    const days: CalendarDaySummary[] = [];
+    let observedAt = "";
+    let activeProviders: CalendarResponse["activeProviders"] = [];
+
+    for (const departureDate of dates) {
+      const outcome = await this.searchTrip(
+        { ...input, departureStart: departureDate, departureEnd: departureDate },
+        now,
+      );
+      if (!outcome.ok) {
+        continue;
+      }
+      const resp = outcome.response;
+      observedAt = resp.observedAt;
+      if (activeProviders.length === 0) {
+        activeProviders = resp.activeProviders;
+      }
+      for (const w of resp.warnings) {
+        warnings.add(w);
+      }
+      const best = resp.results[0];
+      days.push({
+        departureDate,
+        hasComplete: resp.results.length > 0,
+        countComplete: resp.results.length,
+        cheapestTotalIdrMinor: best?.tripTotalIdrMinor ?? null,
+        perPersonEquivalentIdrMinor: best?.perPersonEquivalentIdrMinor ?? null,
+        planId: best?.id ?? null,
+        pattern: best?.pattern ?? null,
+        firstCity: best?.firstCity ?? null,
+        stops: best?.flight.stops ?? null,
+        durationMinutes: best?.flight.durationMinutes ?? null,
+      });
+    }
+
+    const completeDays = days.filter(
+      (d): d is CalendarDaySummary & { cheapestTotalIdrMinor: number } =>
+        d.hasComplete && d.cheapestTotalIdrMinor != null,
+    );
+    const cheapest = completeDays.length > 0
+      ? completeDays.reduce((min, d) =>
+          d.cheapestTotalIdrMinor < (min?.cheapestTotalIdrMinor ?? Infinity) ? d : min,
+          null as (CalendarDaySummary & { cheapestTotalIdrMinor: number }) | null,
+        )
+      : null;
+
+    const response: CalendarResponse = {
+      requestId: randomUUID(),
+      observedAt,
+      scanWindow: {
+        start,
+        end,
+        requestedDays,
+        daysScanned: days.length,
+      },
+      days,
+      cheapestDate: cheapest?.departureDate ?? null,
+      cheapestTotalIdrMinor: cheapest?.cheapestTotalIdrMinor ?? null,
+      activeProviders,
+      warnings: [...warnings],
+      constraints: input,
+      disclaimer: REQUIRED_DISCLAIMER,
+    };
+    return { ok: true, response };
+  }
+
   private hotelKey(
     providerId: string,
     city: City,
@@ -385,6 +478,15 @@ function mergeCityState(current: AvailabilityState, next: AvailabilityState): Av
     return "NO_RESULT";
   }
   return current;
+}
+
+/** Requested scan days: explicit integer in [1, max], otherwise the max. */
+function clampScanDays(raw: unknown, max: number): number {
+  const value = (raw as { days?: unknown })?.days;
+  if (typeof value === "number" && Number.isInteger(value) && value >= 1) {
+    return Math.min(value, max);
+  }
+  return max;
 }
 
 function partialAvailableTotal(plan: TripPlan): number {

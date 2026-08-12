@@ -410,3 +410,35 @@ export interface ValidationIssue {
   code: string;
   message: string;
 }
+
+/** One departure date in the cheapest-date calendar scan. */
+export interface CalendarDaySummary {
+  departureDate: string;
+  hasComplete: boolean;
+  countComplete: number;
+  cheapestTotalIdrMinor: number | null;
+  perPersonEquivalentIdrMinor: number | null;
+  planId: string | null;
+  pattern: ItineraryPattern | null;
+  firstCity: City | null;
+  stops: number | null;
+  durationMinutes: number | null;
+}
+
+export interface CalendarResponse {
+  requestId: string;
+  observedAt: string;
+  scanWindow: {
+    start: string;
+    end: string;
+    requestedDays: number;
+    daysScanned: number;
+  };
+  days: CalendarDaySummary[];
+  cheapestDate: string | null;
+  cheapestTotalIdrMinor: number | null;
+  activeProviders: Array<{ id: string; mode: ProviderMode; enabled: boolean }>;
+  warnings: string[];
+  constraints: TripSearchInput;
+  disclaimer: string;
+}

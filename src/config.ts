@@ -14,6 +14,7 @@ export interface AppConfig {
   maxHotelResultsPerCity: number;
   maxTripPlansReturned: number;
   maxConcurrentProviderRequests: number;
+  calendarScanDaysMax: number;
   alertCooldownHours: number;
   materialDropPercent: number;
   requestCacheTtlMs: number;
@@ -52,6 +53,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     maxHotelResultsPerCity: intFromEnv(env, "MAX_HOTEL_RESULTS_PER_CITY", 10, 1, 50),
     maxTripPlansReturned: intFromEnv(env, "MAX_TRIP_PLANS_RETURNED", 20, 1, 100),
     maxConcurrentProviderRequests: intFromEnv(env, "MAX_CONCURRENT_PROVIDER_REQUESTS", 3, 1, 10),
+    calendarScanDaysMax: intFromEnv(env, "CALENDAR_SCAN_DAYS_MAX", 30, 1, 60),
     alertCooldownHours: intFromEnv(env, "ALERT_COOLDOWN_HOURS", 24, 1, 720),
     materialDropPercent: intFromEnv(env, "MATERIAL_DROP_PERCENT", 3, 1, 50),
     requestCacheTtlMs: intFromEnv(env, "REQUEST_CACHE_TTL_MS", 15 * 60_000, 1_000, 86_400_000),

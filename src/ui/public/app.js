@@ -288,6 +288,7 @@ function badge(state, label) {
 function renderResults(data) {
   const resultsEl = $("#results");
   resultsEl.hidden = false;
+  lastResults = data;
 
   const header = $("#results-header");
   const providers = data.activeProviders.map((p) => p.id.replace("mock-", "Mock ")).join(", ");
@@ -298,10 +299,24 @@ function renderResults(data) {
     <p><strong>Provider aktif:</strong> ${esc(providers)} (mode demo, data sintetis). Waktu observasi: ${esc(formatDateTime(data.observedAt))}.</p>
     <p><strong>Cakupan:</strong> Tiket ${badge(data.coverage.flight, STATE_LABELS[data.coverage.flight] || data.coverage.flight)} &nbsp; Hotel Makkah ${makkahBadge} &nbsp; Hotel Madinah ${madinahBadge}</p>
     ${data.coverage.hotelFrontierDate ? `<p>Hotel dapat dicari sampai tanggal ${esc(formatDate(data.coverage.hotelFrontierDate))} (frontier provider).</p>` : ""}
+    <div class="plan-actions">
+      <button type="button" class="btn btn-ghost" id="btn-other-date">Cari tanggal lain</button>
+      <button type="button" class="btn btn-ghost" id="btn-calendar">Cek tanggal termurah</button>
+    </div>
+    <div class="plan-controls">
+      <label for="sortPlans">Urutkan</label>
+      <select id="sortPlans" class="control-select">
+        <option value="total-asc">Total termurah</option>
+        <option value="total-desc">Total termahal</option>
+        <option value="duration-asc">Durasi terpendek</option>
+        <option value="stops-asc">Transit tersedikit</option>
+      </select>
+      <label class="check-inline"><input type="checkbox" id="filterDirect"> Langsung saja (tanpa transit)</label>
+    </div>
   `;
 
   renderSummaryCards(data);
-  renderPlanList("#plan-list", data.results, false);
+  applyPlanControls();
   const partialSection = $("#partial-section");
   if (data.partialResults.length > 0) {
     partialSection.hidden = false;
@@ -329,11 +344,20 @@ function renderSummaryCards(data) {
   const minMakkah = minSubtotal(plans, "makkah");
   const minMadinah = minSubtotal(plans, "madinah");
   const wrap = $("#summary-cards");
+  const count = plans.length;
+  const avg = count > 0 ? plans.reduce((sum, p) => sum + (p.tripTotalIdrMinor || 0), 0) / count : null;
+  const saving =
+    trip && avg != null && count > 1 && trip.tripTotalIdrMinor != null
+      ? Math.max(0, Math.round(avg - trip.tripTotalIdrMinor))
+      : null;
   wrap.innerHTML = `
     <div class="summary-card featured">
       <h3>Complete trip termurah</h3>
       <div class="amount">${formatIdr(trip ? trip.tripTotalIdrMinor : null)}</div>
-      ${trip ? `<div class="note">setara per orang ${formatIdr(trip.perPersonEquivalentIdrMinor)}</div>` : `<div class="note">Belum ada kombinasi lengkap</div>`}
+      ${trip
+        ? `<div class="note">setara per orang ${formatIdr(trip.perPersonEquivalentIdrMinor)}</div>`
+        + `<div class="note">Termurah dari ${count} paket lengkap yang ditemukan${saving != null ? `, sekitar ${formatIdr(saving)} lebih murah dari rata-rata paket lain` : ""}</div>`
+        : `<div class="note">Belum ada kombinasi lengkap</div>`}
     </div>
     <div class="summary-card">
       <h3>Tiket termurah</h3>
@@ -445,6 +469,163 @@ function formatMinutes(minutes) {
   return h > 0 ? `${h} j ${m} m` : `${m} m`;
 }
 
+/* ---------- sort + filter on results ---------- */
+
+let lastResults = null;
+
+function currentPlans() {
+  if (!lastResults) return [];
+  let plans = lastResults.results.slice();
+  if ($("#filterDirect") && $("#filterDirect").checked) {
+    plans = plans.filter((p) => p.flight.stops === 0);
+  }
+  const sort = $("#sortPlans") ? $("#sortPlans").value : "total-asc";
+  const byTotal = (a, b) => (a.tripTotalIdrMinor || 0) - (b.tripTotalIdrMinor || 0);
+  if (sort === "total-asc") plans.sort(byTotal);
+  else if (sort === "total-desc") plans.sort((a, b) => (b.tripTotalIdrMinor || 0) - (a.tripTotalIdrMinor || 0));
+  else if (sort === "duration-asc") plans.sort((a, b) => (a.flight.durationMinutes - b.flight.durationMinutes) || byTotal(a, b));
+  else if (sort === "stops-asc") plans.sort((a, b) => (a.flight.stops - b.flight.stops) || byTotal(a, b));
+  return plans;
+}
+
+function applyPlanControls() {
+  const plans = currentPlans();
+  renderPlanList("#plan-list", plans, false);
+  const filtered = lastResults && $("#filterDirect") && $("#filterDirect").checked;
+  const note = $("#plan-controls-note");
+  if (note) note.remove();
+  if (lastResults && (filtered || ($("#sortPlans") && $("#sortPlans").value !== "total-asc"))) {
+    const p = document.createElement("p");
+    p.id = "plan-controls-note";
+    p.className = "hint";
+    p.textContent = `Menampilkan ${plans.length} dari ${lastResults.results.length} kombinasi lengkap sesuai urutan/filter Anda.`;
+    $("#plan-list").before(p);
+  }
+}
+
+/* ---------- cheapest-date calendar ---------- */
+
+const DAY_NAMES = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+
+function parseLocal(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
+async function runCalendar() {
+  const input = readForm();
+  const firstError = validateForm(input);
+  if (firstError) {
+    firstError.focus();
+    return;
+  }
+  const status = $("#calendar-status");
+  const btn = $("#calendarBtn2");
+  btn.disabled = true;
+  status.textContent = "Memindai setiap tanggal keberangkatan, mohon tunggu...";
+  $("#calendar-summary").hidden = true;
+  $("#calendar-grid").hidden = true;
+  $("#calendar-note").hidden = true;
+  try {
+    const res = await fetch("/api/search/calendar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...input, days: undefined }),
+    });
+    if (!res.ok) {
+      let message = "Pemindaian kalender gagal diproses server";
+      try {
+        const body = await res.json();
+        if (body.errors && body.errors[0] && body.errors[0].message) message = body.errors[0].message;
+      } catch (_e) { /* non-JSON */ }
+      status.textContent = message;
+      return;
+    }
+    const data = await res.json();
+    status.textContent = "";
+    renderCalendar(data);
+  } catch (err) {
+    status.textContent = "Gagal terhubung ke server, coba lagi.";
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderCalendar(data) {
+  const summary = $("#calendar-summary");
+  const grid = $("#calendar-grid");
+  const note = $("#calendar-note");
+  const completeDays = data.days.filter((d) => d.hasComplete && d.cheapestTotalIdrMinor != null);
+  const average =
+    completeDays.length > 0
+      ? completeDays.reduce((s, d) => s + d.cheapestTotalIdrMinor, 0) / completeDays.length
+      : null;
+  const cheapestTotal = data.cheapestTotalIdrMinor;
+  const saving =
+    cheapestTotal != null && average != null && completeDays.length > 1
+      ? Math.max(0, Math.round(average - cheapestTotal))
+      : null;
+
+  if (data.cheapestDate) {
+    const dt = parseLocal(data.cheapestDate);
+    const dayName = DAY_NAMES[dt.getUTCDay()];
+    const cheapestDay = data.days.find((d) => d.departureDate === data.cheapestDate);
+    summary.innerHTML =
+      `<p><strong>Tanggal termurah:</strong> ${esc(dayName)}, ${esc(formatDate(data.cheapestDate))}, ` +
+      `total ${formatIdr(cheapestTotal)}` +
+      `${cheapestDay && cheapestDay.perPersonEquivalentIdrMinor != null ? ` (setara per orang ${formatIdr(cheapestDay.perPersonEquivalentIdrMinor)})` : ""}.` +
+      `${saving != null ? ` Sekitar ${formatIdr(saving)} lebih murah dari rata-rata ${completeDays.length} tanggal dengan total lengkap.` : ""}`;
+    summary.hidden = false;
+  } else {
+    summary.innerHTML = `<p>Belum ada tanggal dengan total lengkap di rentang ini. Coba rentang lain atau periksa status cakupan di bawah.</p>`;
+    summary.hidden = false;
+  }
+
+  grid.innerHTML = renderCalendarGrid(data.days);
+  grid.hidden = false;
+  note.hidden = false;
+}
+
+function renderCalendarGrid(days) {
+  let html = "";
+  let lastMonth = null;
+  const cheapestDate = lastResultsCalendarCheapest(days);
+  for (const day of days) {
+    const dt = parseLocal(day.departureDate);
+    const month = `${dt.getUTCFullYear()}-${dt.getUTCMonth()}`;
+    if (month !== lastMonth) {
+      lastMonth = month;
+      html += `<div class="cal-month">${esc(formatDate(day.departureDate).split(" ").slice(0, 2).join(" "))}</div>`;
+    }
+    const dayName = DAY_NAMES[dt.getUTCDay()];
+    const isCheapest = day.departureDate === cheapestDate;
+    const total = day.hasComplete && day.cheapestTotalIdrMinor != null ? formatIdr(day.cheapestTotalIdrMinor) : "Belum lengkap";
+    const note = isCheapest ? "Termurah" : dayName;
+    html += `
+      <button type="button" class="cal-day${isCheapest ? " cheapest" : ""}${day.hasComplete ? "" : " empty"}" data-date="${esc(day.departureDate)}" aria-label="${esc(formatDate(day.departureDate))}, ${total}">
+        <span class="cal-day-date">${esc(formatDayShort(day.departureDate))}</span>
+        <span class="cal-day-total">${esc(total)}</span>
+        <span class="cal-day-note">${esc(note)}</span>
+      </button>`;
+  }
+  return html;
+}
+
+function lastResultsCalendarCheapest(days) {
+  let min = null;
+  for (const d of days) {
+    if (d.hasComplete && d.cheapestTotalIdrMinor != null && (min == null || d.cheapestTotalIdrMinor < min.total)) {
+      min = { date: d.departureDate, total: d.cheapestTotalIdrMinor };
+    }
+  }
+  return min ? min.date : null;
+}
+
+function formatDayShort(localDate) {
+  const [y, m, d] = localDate.split("-").map(Number);
+  return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1, d)));
+}
+
 /* ---------- wiring ---------- */
 
 function init() {
@@ -462,6 +643,47 @@ function init() {
   $("#search-form").addEventListener("submit", (event) => {
     event.preventDefault();
     runSearch();
+  });
+
+  const wireCalendarTriggers = () => {
+    const btn = $("#calendarBtn");
+    const btn2 = $("#calendarBtn2");
+    if (btn && !btn.dataset.wired) {
+      btn.dataset.wired = "1";
+      btn.addEventListener("click", () => {
+        runCalendar();
+        document.getElementById("kalender")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+    if (btn2 && !btn2.dataset.wired) {
+      btn2.dataset.wired = "1";
+      btn2.addEventListener("click", () => runCalendar());
+    }
+  };
+  wireCalendarTriggers();
+
+  document.addEventListener("click", (event) => {
+    if (event.target.closest("#btn-other-date")) {
+      const form = $("#search-form");
+      form.scrollIntoView({ behavior: "smooth", block: "start" });
+      setTimeout(() => $("#departureStart").focus(), 350);
+    } else if (event.target.closest("#btn-calendar")) {
+      runCalendar();
+      document.getElementById("kalender")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    const day = event.target.closest(".cal-day[data-date]");
+    if (day) {
+      const date = day.getAttribute("data-date");
+      $("#departureStart").value = date;
+      $("#departureEnd").value = date;
+      runSearch();
+    }
+  });
+
+  document.addEventListener("change", (event) => {
+    if (event.target.id === "sortPlans" || event.target.id === "filterDirect") {
+      applyPlanControls();
+    }
   });
 
   $("#how-calc-toggle").addEventListener("click", () => {

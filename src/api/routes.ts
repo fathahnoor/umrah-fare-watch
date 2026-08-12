@@ -40,6 +40,20 @@ export function createRoutes(deps: RouteDeps): Router {
     res.json(outcome.response);
   });
 
+  router.post("/search/calendar", async (req: Request, res: Response) => {
+    const outcome = await deps.searchService.searchCalendar(req.body, deps.now());
+    if (!outcome.ok) {
+      res.status(400).json({
+        code: "VALIDATION_ERROR",
+        errors: outcome.issues,
+        retryable: false,
+        correlationId: res.locals.correlationId,
+      });
+      return;
+    }
+    res.json(outcome.response);
+  });
+
   router.get("/providers/health", async (_req: Request, res: Response) => {
     const health = await deps.searchService.providerHealth();
     res.json({ providers: health, correlationId: res.locals.correlationId });
