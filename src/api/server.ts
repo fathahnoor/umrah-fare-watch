@@ -4,10 +4,11 @@ import { randomUUID } from "node:crypto";
 import express from "express";
 import type { NextFunction, Request, Response } from "express";
 import { loadConfig, type AppConfig } from "../config.js";
-import { createMockRegistry, type ProviderRegistry } from "../providers/registry.js";
+import { createRegistry, type ProviderRegistry } from "../providers/registry.js";
 import { ProviderError } from "../providers/types.js";
 import { AuthService } from "../services/authService.js";
 import { CoverageService } from "../services/coverageService.js";
+import { HandoffService } from "../services/handoffService.js";
 import { SearchService } from "../services/searchService.js";
 import { WatchlistService } from "../services/watchlistService.js";
 import { SqliteAuthRepo, type AuthRepo } from "../store/auth.js";
@@ -27,6 +28,7 @@ export interface AppDeps {
   now: () => Date;
   searchService?: SearchService;
   watchlistService?: WatchlistService;
+  handoffService?: HandoffService;
 }
 
 export function createApp(deps: AppDeps): express.Express {
@@ -40,6 +42,7 @@ export function createApp(deps: AppDeps): express.Express {
   const watchlistService =
     deps.watchlistService ??
     new WatchlistService(searchService, deps.watchlistRepo, deps.config);
+  const handoffService = deps.handoffService ?? new HandoffService(deps.registry, deps.store, deps.config);
 
   app.disable("x-powered-by");
   app.use(express.json({ limit: "256kb" }));
@@ -73,6 +76,7 @@ export function createApp(deps: AppDeps): express.Express {
       watchlistService,
       coverageService,
       authService,
+      handoffService,
       config: deps.config,
       now: deps.now,
     }),
@@ -132,7 +136,9 @@ function main(): void {
   const watchlistRepo = new SqliteWatchlistRepo(db);
   const coverageRepo = new SqliteCoverageRepo(db);
   const authRepo = new SqliteAuthRepo(db);
-  const registry = createMockRegistry(config.mockHotelFrontierDays);
+  // Upgrades to real adapters automatically once tokens + REAL_PROVIDERS_ENABLED
+  // are set; with no tokens this is exactly the mock registry.
+  const registry = createRegistry(config);
   const searchService = new SearchService(registry, store, config, coverageRepo);
   const watchlistService = new WatchlistService(searchService, watchlistRepo, config);
   const coverageService = new CoverageService(registry, coverageRepo, config);

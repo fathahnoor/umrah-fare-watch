@@ -8,6 +8,7 @@ export interface ObservationStore {
   saveFlightObservation(obs: FlightObservation): void;
   saveHotelObservation(obs: HotelObservation): void;
   saveTripPlan(plan: TripPlan): void;
+  getTripPlan(id: string): TripPlan | null;
   close(): void;
 }
 
@@ -140,6 +141,13 @@ export class SqliteStore implements ObservationStore {
         plan.calculatedAt,
         JSON.stringify(plan),
       );
+  }
+
+  getTripPlan(id: string): TripPlan | null {
+    const row = this.db
+      .prepare("SELECT payload FROM trip_plans WHERE id = ?")
+      .get(id) as { payload: string } | undefined;
+    return row ? (JSON.parse(row.payload) as TripPlan) : null;
   }
 
   close(): void {

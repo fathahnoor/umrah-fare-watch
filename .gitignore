@@ -20,6 +20,10 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
+# Local SQLite database (server data, never commit)
+data/
+
+
 # Editor
 .idea/
 .vscode/

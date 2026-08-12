@@ -26,7 +26,7 @@ import type {
   ValidationIssue,
 } from "../domain/types.js";
 import { validateTripSearchInput } from "../domain/validation.js";
-import { collectHealth, type ProviderRegistry } from "../providers/registry.js";
+import { activeFlightProvider, activeHotelProvider, collectHealth, type ProviderRegistry } from "../providers/registry.js";
 import { enumerateDates } from "../providers/mock/mockFlightProvider.js";
 import { flightObservationSchema, hotelObservationSchema } from "../providers/schemas.js";
 import { ProviderError, type HotelProvider, type HotelSearchInput, type ProviderHealthSnapshot } from "../providers/types.js";
@@ -83,8 +83,8 @@ export class SearchService {
     const warnings: string[] = [];
     const unavailableProviders: TripSearchResponse["unavailableProviders"] = [];
 
-    const flightProvider = this.registry.flightProviders[0];
-    const hotelProvider = this.registry.hotelProviders[0];
+    const flightProvider = activeFlightProvider(this.registry);
+    const hotelProvider = activeHotelProvider(this.registry);
     if (!flightProvider || !hotelProvider) {
       throw new Error("provider registry is empty");
     }
@@ -405,7 +405,7 @@ export class SearchService {
     hotelFrontierDate: string | null;
     disclaimer: string;
   }> {
-    const hotelProvider = this.registry.hotelProviders[0];
+    const hotelProvider = activeHotelProvider(this.registry);
     const frontier = hotelProvider ? await hotelProvider.getFrontier(now) : null;
     return {
       providers: await collectHealth(this.registry),
@@ -432,7 +432,7 @@ export class SearchService {
     unavailableProviders: TripSearchResponse["unavailableProviders"],
     warnings: string[],
   ): Promise<HotelBucket> {
-    const hotelProvider = this.registry.hotelProviders[0];
+    const hotelProvider = activeHotelProvider(this.registry);
     if (!hotelProvider) {
       return { key: "", city: searchInput.city, checkIn: searchInput.checkIn, checkOut: searchInput.checkOut, observations: [], state: "NOT_SCANNED" };
     }
@@ -487,7 +487,7 @@ export class SearchService {
     params: FlightWatchlistParams,
     now: Date,
   ): Promise<WatchComponentCheck> {
-    const flightProvider = this.registry.flightProviders[0];
+    const flightProvider = activeFlightProvider(this.registry);
     if (!flightProvider) {
       throw new Error("no flight provider for watchlist check");
     }
@@ -549,7 +549,7 @@ export class SearchService {
 
   /** Standalone component check for HOTEL watchlists: exact canonical search. */
   async checkHotelWatchlist(params: HotelWatchlistParams, now: Date): Promise<WatchComponentCheck> {
-    const hotelProvider = this.registry.hotelProviders[0];
+    const hotelProvider = activeHotelProvider(this.registry);
     if (!hotelProvider) {
       throw new Error("no hotel provider for watchlist check");
     }
@@ -619,7 +619,7 @@ export class SearchService {
     if (!this.coverageRepo) {
       return;
     }
-    const flightProvider = this.registry.flightProviders[0];
+    const flightProvider = activeFlightProvider(this.registry);
     if (!flightProvider) {
       return;
     }

@@ -5,6 +5,7 @@ import type { AppConfig } from "../config.js";
 import { addDays, todayLocalDate } from "../domain/dates.js";
 import type { AuthService } from "../services/authService.js";
 import type { CoverageService } from "../services/coverageService.js";
+import type { HandoffService } from "../services/handoffService.js";
 import type { SearchService } from "../services/searchService.js";
 import type { WatchlistService } from "../services/watchlistService.js";
 
@@ -13,6 +14,7 @@ export interface RouteDeps {
   watchlistService: WatchlistService;
   coverageService: CoverageService;
   authService: AuthService;
+  handoffService: HandoffService;
   config: AppConfig;
   now: () => Date;
 }
@@ -234,6 +236,40 @@ export function createRoutes(deps: RouteDeps): Router {
       hotelFrontierDate: frontier,
       generatedAt: now.toISOString(),
     });
+  });
+
+  // M8 booking handoff (04_PROVIDER_AND_DATA_STRATEGY.md section 11).
+  // Re-verify + change summary; no auth required (the plan id itself is an
+  // opaque server-side reference, matching "produk tidak memproses booking").
+  router.post("/handoff/prepare", async (req: Request, res: Response) => {
+    const outcome = await deps.handoffService.prepare(req.body?.planId ?? null, deps.now());
+    if (!outcome.ok) {
+      res.status(outcome.code === "NOT_FOUND" ? 404 : 502).json({
+        code: outcome.code,
+        message: outcome.message,
+        retryable: outcome.code === "PROVIDER_UNAVAILABLE",
+        correlationId: res.locals.correlationId,
+      });
+      return;
+    }
+    res.json({ ...outcome.data, correlationId: res.locals.correlationId });
+  });
+
+  router.post("/handoff/confirm", async (req: Request, res: Response) => {
+    const body = (req.body ?? {}) as { planId?: unknown; confirmPriceIdrMinor?: unknown };
+    const outcome = await deps.handoffService.confirm(body.planId ?? null, body.confirmPriceIdrMinor ?? null, deps.now());
+    if (!outcome.ok) {
+      const status =
+        outcome.code === "NOT_FOUND" ? 404 : outcome.code === "QUOTE_CHANGED" ? 409 : outcome.code === "INVALID_PROVIDER_RESPONSE" ? 502 : 502;
+      res.status(status).json({
+        code: outcome.code,
+        message: outcome.message,
+        retryable: false,
+        correlationId: res.locals.correlationId,
+      });
+      return;
+    }
+    res.json({ ...outcome.data, correlationId: res.locals.correlationId });
   });
 
   return router;

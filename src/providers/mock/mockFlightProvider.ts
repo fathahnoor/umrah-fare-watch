@@ -115,10 +115,15 @@ export function buildSegments(
 export class MockFlightProvider implements FlightProvider {
   readonly id = MOCK_FLIGHT_PROVIDER_ID;
   readonly mode = "MOCK" as const;
+  readonly enabled: boolean;
   private calls = 0;
   private failures = 0;
   private cacheHits = 0;
   private lastSuccessAt: string | null = null;
+
+  constructor(enabled: boolean = true) {
+    this.enabled = enabled;
+  }
 
   async discover(input: FlightDiscoveryInput): Promise<FlightDiscoveryResult> {
     this.calls += 1;
@@ -283,9 +288,9 @@ export class MockFlightProvider implements FlightProvider {
     return {
       id: this.id,
       mode: this.mode,
-      enabled: true,
-      enabledReason: "Deterministic mock provider, always available",
-      disabledReason: null,
+      enabled: this.enabled,
+      enabledReason: this.enabled ? "Deterministic mock provider, always available" : null,
+      disabledReason: this.enabled ? null : "Provider real aktif; mock nonaktif sebagai fallback",
       adapterVersion: FLIGHT_ADAPTER_VERSION,
       lastSuccessAt: this.lastSuccessAt,
       lastFailureCategory: this.failures > 0 ? "PROVIDER_UNAVAILABLE" : null,

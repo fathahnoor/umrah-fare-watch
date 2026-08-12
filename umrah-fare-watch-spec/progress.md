@@ -47,7 +47,16 @@
     - UI kartu pantauan adaptif per tipe (Tiket / Hotel / Perjalanan lengkap).
     - Test `tests/api.watchlist.types.test.ts` (5): baseline FLIGHT terverifikasi, HOTEL + tolak frontier, stabilitas check HOTEL, validasi, default COMPLETE_TRIP. Total suite 113 test.
   - **M9 release gate (12 Agu 2026):** `npm run release-gate` menjalankan berurutan typecheck, lint, test, build, smoke mock tanpa kredensial, dan spec validator; keluar dengan PASS/FAIL. README diperbarui dengan opsi deployment (PaaS vs VPS) dan catatan bahwa GitHub Pages tidak dapat menjalankan backend (API + SQLite + worker + secret server-side). Total suite tetap 113 test.
-- Next: M5-M7 (provider real, menunggu akses resmi), M8 (booking handoff).
+  - **M8 scaffolding + kerangka adapter M5-M7 (12 Agu 2026):**
+    - Config baru: `REAL_PROVIDERS_ENABLED` (master switch), `TRAVELPAYOUTS_TOKEN`, `DUFFEL_TOKEN`, `DUFFEL_STAYS_ENABLED`, `FX_API_KEY`/`FX_API_URL`, `HANDOFF_ALLOWED_HOSTS` (default `mock.example`). Semua token server-side, tidak pernah masuk commit.
+    - Kontrak provider mendapat `enabled` + `ProviderError` ACCESS_NOT_CONFIGURED; registry `createRegistry` kini dipakai di `main()` dan mock otomatis mundur (disabled sebagai fallback) begitu gate provider real terbuka, sehingga `activeFlightProvider`/`activeHotelProvider` memilih adapter real.
+    - Kerangka adapter **Travelpayouts/Aviasales** (M5, INDICATIVE): `discover` memetakan `prices_for_dates`, mapping murni `mapAviasalesPayload` (filter origin/destination, stable id, canonicalKey, TTL 6 jam), tetap disabled tanpa gate.
+    - Kerangka adapter **Duffel Flights** (M6, LIVE_VERIFIED): `DuffelClient` (token Bearer, error mapping rate-limit/Retry-After), offer request + `mapOfferToObservation` (segments, tax, normalized IDR), frontier flight.
+    - Kerangka adapter **Duffel Stays** (M7, hotel): `DuffelHotelProvider` dengan frontier 330 hari + `NOT_YET_SEARCHABLE`, aktif hanya jika `DUFFEL_STAYS_ENABLED` juga true.
+    - Modul `fxLive.ts`: `convertToIdrRate` (murni) + `liveFxSnapshot` (tanpa key -> ACCESS_NOT_CONFIGURED).
+    - **M8 booking handoff** (`HandoffService`): `prepare` (re-verify flight via `verify` + re-check hotel, bandingkan dengan snapshot tersimpan, change summary per komponen + total, warnings) dan `confirm` (wajib angka total integer eksplisit, cocok dengan total terverifikasi atau 409 QUOTE_CHANGED, hanya buka URL host dalam allowlist, sertakan disclaimer). API `POST /api/handoff/prepare` dan `POST /api/handoff/confirm`; `getTripPlan(id)` di store. Produk tidak memproses payment/booking.
+    - Test baru `tests/api.handoff.test.ts` (5) dan `tests/providers.adapters.test.ts` (7, fixture offline tanpa network). Total suite 125 test; typecheck, lint, release gate hijau.
+- Next: M5-M7 (provider real) terblokir menunggu token resmi dari user (Travelpayouts, Duffel, opsional FX). Begitu token masuk: set env server-side + jalankan smoke test server-side tersensor, baru aktifkan gate. M8 UI tombol handoff menyusul setelah adapter live terhubung.
 
 ## Session: 2026-08-11
 

@@ -21,6 +21,13 @@ export interface AppConfig {
   coverageWorkerIntervalMs: number;
   sessionTtlDays: number;
   alertCooldownHours: number;
+  realProvidersEnabled: boolean;
+  travelpayoutsToken: string | null;
+  duffelToken: string | null;
+  duffelStaysEnabled: boolean;
+  fxApiKey: string | null;
+  fxApiUrl: string;
+  handoffAllowedHosts: string[];
   materialDropPercent: number;
   requestCacheTtlMs: number;
 }
@@ -35,6 +42,16 @@ function intFromEnv(env: NodeJS.ProcessEnv, key: string, fallback: number, min: 
     throw new Error(`invalid config ${key}: expected integer in [${min}, ${max}]`);
   }
   return value;
+}
+
+function parseHostList(raw: string | undefined, fallback: string): string[] {
+  if (raw == null || raw.trim() === "") {
+    return [fallback];
+  }
+  return raw
+    .split(",")
+    .map((h) => h.trim().toLowerCase())
+    .filter((h) => h !== "");
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -65,6 +82,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     coverageWorkerIntervalMs: intFromEnv(env, "COVERAGE_WORKER_INTERVAL_MS", 600_000, 10_000, 3_600_000),
     sessionTtlDays: intFromEnv(env, "SESSION_TTL_DAYS", 30, 1, 365),
     alertCooldownHours: intFromEnv(env, "ALERT_COOLDOWN_HOURS", 24, 1, 720),
+    realProvidersEnabled: (env.REAL_PROVIDERS_ENABLED ?? "false").toLowerCase() === "true",
+    travelpayoutsToken: env.TRAVELPAYOUTS_TOKEN ?? null,
+    duffelToken: env.DUFFEL_TOKEN ?? null,
+    duffelStaysEnabled: (env.DUFFEL_STAYS_ENABLED ?? "false").toLowerCase() === "true",
+    fxApiKey: env.FX_API_KEY ?? null,
+    fxApiUrl: env.FX_API_URL ?? "https://open.er-api.com/v6/latest/USD",
+    handoffAllowedHosts: parseHostList(env.HANDOFF_ALLOWED_HOSTS, "mock.example"),
     materialDropPercent: intFromEnv(env, "MATERIAL_DROP_PERCENT", 3, 1, 50),
     requestCacheTtlMs: intFromEnv(env, "REQUEST_CACHE_TTL_MS", 15 * 60_000, 1_000, 86_400_000),
   };

@@ -13,7 +13,7 @@ import {
 import { addDays } from "../domain/dates.js";
 import { hotelCheckInState } from "../domain/horizons.js";
 import type { AvailabilityState, CoverageRecord, ItineraryPattern } from "../domain/types.js";
-import type { ProviderRegistry } from "../providers/registry.js";
+import { activeFlightProvider, activeHotelProvider, type ProviderRegistry } from "../providers/registry.js";
 import type { CoverageRepo } from "../store/coverage.js";
 
 const COVERAGE_ORIGIN = "CGK";
@@ -47,7 +47,7 @@ export class CoverageService {
 
   /** Scan every due flight date in the rolling 370-day technical plan. */
   async runFlightCoverageScan(now: Date): Promise<CoverageScanResult> {
-    const flightProvider = this.registry.flightProviders[0];
+    const flightProvider = activeFlightProvider(this.registry);
     if (!flightProvider) {
       throw new Error("no flight provider for coverage scan");
     }
@@ -120,7 +120,7 @@ export class CoverageService {
    * until an exact hotel search records them (selective enrichment).
    */
   async refreshHotelFrontier(now: Date): Promise<CoverageScanResult> {
-    const hotelProvider = this.registry.hotelProviders[0];
+    const hotelProvider = activeHotelProvider(this.registry);
     if (!hotelProvider) {
       throw new Error("no hotel provider for frontier refresh");
     }
@@ -180,8 +180,8 @@ export class CoverageService {
 
   /** Per-date flight and hotel states for the calendar. */
   async calendarDays(start: string, end: string, now: Date): Promise<CalendarDay[]> {
-    const flightProvider = this.registry.flightProviders[0];
-    const hotelProvider = this.registry.hotelProviders[0];
+    const flightProvider = activeFlightProvider(this.registry);
+    const hotelProvider = activeHotelProvider(this.registry);
     const flightRows = flightProvider
       ? this.repo.listAllFlightCoverage(start, end)
       : [];

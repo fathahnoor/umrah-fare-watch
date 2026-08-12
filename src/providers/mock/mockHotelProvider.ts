@@ -33,13 +33,15 @@ const SAR_MINOR_PER_MAJOR = 100;
 export class MockHotelProvider implements HotelProvider {
   readonly id = MOCK_HOTEL_PROVIDER_ID;
   readonly mode = "MOCK" as const;
+  readonly enabled: boolean;
   private frontierDays: number;
   private calls = 0;
   private failures = 0;
   private lastSuccessAt: string | null = null;
 
-  constructor(frontierDays: number) {
+  constructor(frontierDays: number, enabled: boolean = true) {
     this.frontierDays = frontierDays;
+    this.enabled = enabled;
   }
 
   async getFrontier(now: Date): Promise<HotelFrontier> {
@@ -243,9 +245,9 @@ export class MockHotelProvider implements HotelProvider {
     return {
       id: this.id,
       mode: this.mode,
-      enabled: true,
-      enabledReason: "Deterministic mock provider, always available",
-      disabledReason: null,
+      enabled: this.enabled,
+      enabledReason: this.enabled ? "Deterministic mock provider, always available" : null,
+      disabledReason: this.enabled ? null : "Provider real aktif; mock nonaktif sebagai fallback",
       adapterVersion: HOTEL_ADAPTER_VERSION,
       lastSuccessAt: this.lastSuccessAt,
       lastFailureCategory: this.failures > 0 ? "PROVIDER_UNAVAILABLE" : null,

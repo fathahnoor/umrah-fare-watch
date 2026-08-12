@@ -87,6 +87,8 @@ export interface ProviderHealthSnapshot {
 export interface FlightProvider {
   id: string;
   mode: ProviderMode;
+  /** Whether this adapter may be used by the app right now. */
+  readonly enabled: boolean;
   discover(input: FlightDiscoveryInput): Promise<FlightDiscoveryResult>;
   verify(input: FlightVerificationInput): Promise<FlightVerificationResult>;
   health(): Promise<ProviderHealthSnapshot>;
@@ -95,6 +97,7 @@ export interface FlightProvider {
 export interface HotelProvider {
   id: string;
   mode: ProviderMode;
+  readonly enabled: boolean;
   getFrontier(now: Date): Promise<HotelFrontier>;
   search(input: HotelSearchInput): Promise<HotelSearchResult>;
   health(): Promise<ProviderHealthSnapshot>;
