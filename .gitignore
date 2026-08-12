@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Environment and secrets (names only in .env.example)
+.env
+.env.*
+!.env.example
+
+# Freebuff app data (not part of the project)
+.freebuff/
+
+# Logs and OS junk
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea/
+.vscode/
