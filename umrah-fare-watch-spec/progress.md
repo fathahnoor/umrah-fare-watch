@@ -11,7 +11,10 @@
   - Milestone 1 (domain types, mock providers, Trip Composer, store, search API) selesai dan dipush.
   - Milestone 2 (UI halaman pencarian, progress, results, disclaimer) selesai, identitas commit `fathahnoor`.
   - **Produk decision change (approval user 12 Agu 2026):** headline homepage diubah dari `Cari Total Umrah Termurah` menjadi `Cari Biaya Umrah Termurah` karena bahasanya dinilai janggal (revisi setelah umpan balik user). Perubahan disinkronkan ke `06_UI_UX_SPEC.md`, `09_ACCEPTANCE_TESTS.md` (`MUST UX-01`), `10_FREEBUFF_MASTER_PROMPT.md`, dan `tools/validate-spec.ps1`. Arsip dan catatan verifikasi lama tidak diubah karena merupakan bukti historis.
-- Next: test suite acceptance, eslint, README, handoff notes, push berikutnya.
+  - Milestone 3 selesai: 82 test Vitest dipetakan ke ID acceptance (validation, dates, money, ranking, coverage, providers, composer, alerts, API integration), ESLint, `.env.example`, README, dan smoke mock tanpa kredensial. Typecheck, lint, test, dan smoke hijau.
+  - Bug yang diperbaiki: derivasi datetime lokal (tz host), tanggal arrival transit, layover durasi round-trip, id observasi yang bertabrakan, dan typo nama field di UI.
+  - Repo GitHub: description dan topics diisi; README ter-push; identitas commit `fathahnoor` / `fathah.noor@yahoo.com`.
+- Next: M4 lanjutan (watchlist/alerts worker dan scheduler coverage), M5-M7 (provider real, menunggu akses), M8 (booking handoff), M9 (release gate).
 
 ## Session: 2026-08-11
 

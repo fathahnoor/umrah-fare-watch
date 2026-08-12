@@ -425,7 +425,7 @@ function planCard(plan, partial) {
         </div>
         <div class="badge-row">${badge(plan.tripPlanStatus, statusLabel)}${badge(plan.priceCompleteness, completenessLabel)}</div>
       </div>
-      <p class="plan-meta">${esc(formatDate(dates.makahCheckIn))} sampai ${esc(formatDate(dates.madinahCheckOut))} &middot; ${esc(plan.adults)} dewasa${plan.childrenAges.length ? ", " + esc(plan.childrenAges.length) + " anak" : ""} &middot; ${esc(plan.rooms)} kamar &middot; urutan kota ${esc(plan.firstCity)} lalu ${esc(plan.secondCity)}</p>
+      <p class="plan-meta">${esc(formatDate(dates.makkahCheckIn))} sampai ${esc(formatDate(dates.madinahCheckOut))} &middot; ${esc(plan.adults)} dewasa${plan.childrenAges.length ? ", " + esc(plan.childrenAges.length) + " anak" : ""} &middot; ${esc(plan.rooms)} kamar &middot; urutan kota ${esc(plan.firstCity)} lalu ${esc(plan.secondCity)}</p>
       ${breakdown}
       <div class="plan-detail-grid" id="detail-${esc(plan.id)}" hidden>
         ${flightDetail}
