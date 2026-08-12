@@ -21,6 +21,7 @@ import type {
 } from "../domain/types.js";
 import { validateTripSearchInput } from "../domain/validation.js";
 import { collectHealth, type ProviderRegistry } from "../providers/registry.js";
+import { flightObservationSchema, hotelObservationSchema } from "../providers/schemas.js";
 import { ProviderError, type ProviderHealthSnapshot } from "../providers/types.js";
 import type { ObservationStore } from "../store/repositories.js";
 
@@ -97,7 +98,12 @@ export class SearchService {
           cabin: input.cabin,
           now,
         });
-        this.store.saveFlightObservation(observation);
+        const parsed = flightObservationSchema.safeParse(observation);
+        if (!parsed.success) {
+          warnings.push("Respons provider tiket tidak valid dan tidak disimpan");
+          continue;
+        }
+        this.store.saveFlightObservation(parsed.data);
         if (observation.verificationStatus !== "EXPIRED" && !isExpired(observation.expiresAt, now)) {
           flightObservations.push(observation);
         } else {
@@ -321,9 +327,15 @@ export class SearchService {
     const key = canonicalHotelSearchKey(searchInput);
     try {
       const result = await hotelProvider.search(searchInput);
-      const observations = result.observations.slice(0, this.config.maxHotelResultsPerCity);
-      for (const obs of observations) {
-        this.store.saveHotelObservation(obs);
+      const observations: HotelObservation[] = [];
+      for (const obs of result.observations.slice(0, this.config.maxHotelResultsPerCity)) {
+        const parsed = hotelObservationSchema.safeParse(obs);
+        if (!parsed.success) {
+          warnings.push(`Satu respons hotel ${searchInput.city === "MAKKAH" ? "Makkah" : "Madinah"} tidak valid dan tidak disimpan`);
+          continue;
+        }
+        this.store.saveHotelObservation(parsed.data);
+        observations.push(parsed.data);
       }
       const state: AvailabilityState = result.state === "HAS_RESULT" ? "HAS_RESULT" : result.state === "NO_RESULT" ? "NO_RESULT" : "NOT_YET_SEARCHABLE";
       return { key, city: searchInput.city, checkIn: searchInput.checkIn, checkOut: searchInput.checkOut, observations, state };

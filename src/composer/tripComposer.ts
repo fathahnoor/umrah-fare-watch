@@ -13,7 +13,6 @@ import type {
   TripPlan,
   TripPlanSummary,
   TripSearchInput,
-  VerificationStatus,
 } from "../domain/types.js";
 
 export const CALCULATION_FORMULA_VERSION = "trip-total-v1";

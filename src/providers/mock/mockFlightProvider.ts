@@ -1,6 +1,6 @@
 // Deterministic Mock FlightProvider. Runs without network or credentials and
 // covers the required fixture scenarios (04_PROVIDER_AND_DATA_STRATEGY.md).
-import { addDays, localDateAt } from "../../domain/dates.js";
+import { addDays, localDateAt, utcInstantAt } from "../../domain/dates.js";
 import { flightPriceCompleteness } from "../../domain/completeness.js";
 import { canonicalFlightKey } from "../../domain/canonical.js";
 import { normalizeToIdrMinor } from "../../domain/money.js";
@@ -46,10 +46,6 @@ export function patternAirports(pattern: ItineraryPattern): { outboundAirport: s
   }
 }
 
-function toUtcIso(localIso: string, offsetMinutes: number): string {
-  return new Date(new Date(localIso).getTime() - offsetMinutes * MINUTE_MS).toISOString();
-}
-
 function segment(
   carrier: string,
   flightNumber: string,
@@ -60,7 +56,7 @@ function segment(
   durationMin: number,
   arrOffset: number,
 ): FlightSegment {
-  const departureUtcInstant = toUtcIso(depLocal, depOffset);
+  const departureUtcInstant = utcInstantAt(depLocal, depOffset);
   const arrivalUtcInstant = new Date(
     new Date(departureUtcInstant).getTime() + durationMin * MINUTE_MS,
   ).toISOString();
@@ -104,8 +100,11 @@ export function buildSegments(
       segment("MOCK AIR", "UWF 614", "KUL", "CGK", `${addDays(returnDate, 1)}T07:00:00`, KUL_OFFSET, 250, CGK_OFFSET),
     ];
   }
-  const outboundArrival = segments[0]?.arrivalUtcInstant as string;
-  const returnDeparture = segments[1]?.departureUtcInstant as string;
+  // Outbound legs end at the Saudi gateway; return legs start there.
+  const outboundLegs = segments.slice(0, stopCount + 1);
+  const returnLegs = segments.slice(stopCount + 1);
+  const outboundArrival = outboundLegs[outboundLegs.length - 1]?.arrivalUtcInstant as string;
+  const returnDeparture = returnLegs[0]?.departureUtcInstant as string;
   return {
     segments,
     outboundArrivalSaudiDate: localDateAt(outboundArrival, SAUDI_OFFSET),
@@ -136,11 +135,11 @@ export class MockFlightProvider implements FlightProvider {
             continue;
           }
           const { segments } = buildSegments(departureLocalDate, outboundAirport, returnAirport, stopCount);
-          const durationMinutes = totalDurationMinutes(segments);
+          const durationMinutes = totalDurationMinutes(segments, stopCount);
           if (input.maxTripDurationMinutes !== undefined && durationMinutes > input.maxTripDurationMinutes) {
             continue;
           }
-          const layover = stopCount === 0 ? 0 : maxLayoverMinutes(segments);
+          const layover = stopCount === 0 ? 0 : maxLayoverMinutes(segments, stopCount);
           if (input.maxLayoverMinutes !== undefined && layover > input.maxLayoverMinutes) {
             continue;
           }
@@ -340,34 +339,54 @@ function observationBase(): FlightObservation {
   };
 }
 
-function totalDurationMinutes(segments: FlightSegment[]): number {
+/**
+ * Total journey time: flying time plus intra-direction layovers. The stay in
+ * Saudi Arabia between outbound and return is not travel time and is excluded.
+ */
+function totalDurationMinutes(segments: FlightSegment[], stopCount: number): number {
+  const outbound = segments.slice(0, stopCount + 1);
+  const inbound = segments.slice(stopCount + 1);
+  return directionDuration(outbound) + directionDuration(inbound);
+}
+
+function directionDuration(legs: FlightSegment[]): number {
   let total = 0;
-  for (let i = 0; i < segments.length; i += 1) {
-    const seg = segments[i] as FlightSegment;
-    total +=
-      (new Date(seg.arrivalUtcInstant).getTime() - new Date(seg.departureUtcInstant).getTime()) /
-      MINUTE_MS;
-    const next = segments[i + 1];
+  for (let i = 0; i < legs.length; i += 1) {
+    const seg = legs[i] as FlightSegment;
+    total += durationOf(seg);
+    const next = legs[i + 1];
     if (next) {
-      total +=
-        (new Date(next.departureUtcInstant).getTime() - new Date(seg.arrivalUtcInstant).getTime()) /
-        MINUTE_MS;
+      total += gapMinutes(seg, next);
     }
   }
   return total;
 }
 
-function maxLayoverMinutes(segments: FlightSegment[]): number {
-  let maxLayover = 0;
-  for (let i = 0; i < segments.length - 1; i += 1) {
-    const seg = segments[i] as FlightSegment;
-    const next = segments[i + 1] as FlightSegment;
-    const gap =
-      (new Date(next.departureUtcInstant).getTime() - new Date(seg.arrivalUtcInstant).getTime()) /
-      MINUTE_MS;
-    maxLayover = Math.max(maxLayover, gap);
+function maxLayoverMinutes(segments: FlightSegment[], stopCount: number): number {
+  const outbound = segments.slice(0, stopCount + 1);
+  const inbound = segments.slice(stopCount + 1);
+  let max = 0;
+  for (let i = 0; i < outbound.length - 1; i += 1) {
+    max = Math.max(max, gapMinutes(outbound[i] as FlightSegment, outbound[i + 1] as FlightSegment));
   }
-  return maxLayover;
+  for (let i = 0; i < inbound.length - 1; i += 1) {
+    max = Math.max(max, gapMinutes(inbound[i] as FlightSegment, inbound[i + 1] as FlightSegment));
+  }
+  return max;
+}
+
+function durationOf(seg: FlightSegment): number {
+  return (
+    (new Date(seg.arrivalUtcInstant).getTime() - new Date(seg.departureUtcInstant).getTime()) /
+    MINUTE_MS
+  );
+}
+
+function gapMinutes(a: FlightSegment, b: FlightSegment): number {
+  return (
+    (new Date(b.departureUtcInstant).getTime() - new Date(a.arrivalUtcInstant).getTime()) /
+    MINUTE_MS
+  );
 }
 
 export function enumerateDates(start: string, end: string): string[] {

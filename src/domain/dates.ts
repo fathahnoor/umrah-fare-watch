@@ -4,6 +4,7 @@
 
 const DAY_MS = 86_400_000;
 const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const WALL_CLOCK_RE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/;
 
 export function todayLocalDate(now: Date): string {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString().slice(0, 10);
@@ -27,6 +28,22 @@ export function daysUntil(localDate: string, now: Date): number {
   const target = dateToUtcMs(localDate);
   const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   return Math.round((target - today) / DAY_MS);
+}
+
+/**
+ * Convert a naive wall-clock datetime plus an explicit UTC offset into a UTC
+ * instant. Never relies on the host timezone.
+ */
+export function utcInstantAt(localWallClock: string, offsetMinutes: number): string {
+  const m = WALL_CLOCK_RE.exec(localWallClock);
+  if (!m) {
+    throw new Error(`invalid wall-clock datetime: ${localWallClock}`);
+  }
+  const [, y, mo, d, h, mi, s] = m;
+  const utcMs =
+    Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s)) -
+    offsetMinutes * 60_000;
+  return new Date(utcMs).toISOString();
 }
 
 /** Whole days from local date a to local date b (positive when b is later). */
