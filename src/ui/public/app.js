@@ -7,6 +7,8 @@ const DISCLAIMER =
 const HOTEL_REMINDER =
   "Setelah memesan, konfirmasikan nomor reservasi langsung ke hotel. Untuk kebutuhan visa, pastikan persyaratan dan proses approval melalui sumber resmi atau provider visa Anda.";
 
+const LAST_RESULTS_KEY = "ufw_last_results_v1";
+
 const PROGRESS_STEPS = [
   "Mencari kandidat tiket",
   "Memverifikasi jadwal terpilih",
@@ -313,10 +315,18 @@ function badge(state, label) {
   return `<span class="status-badge" data-state="${esc(state)}">${esc(label)}</span>`;
 }
 
-function renderResults(data) {
+function renderResults(data, opts = {}) {
   const resultsEl = $("#results");
   resultsEl.hidden = false;
   lastResults = data;
+  const restoreNote = document.getElementById("restore-note");
+  if (restoreNote) restoreNote.remove();
+  // Simpan hasil terakhir agar tidak hilang saat halaman dibuka ulang.
+  try {
+    localStorage.setItem(LAST_RESULTS_KEY, JSON.stringify({ savedAt: new Date().toISOString(), data }));
+  } catch (_e) {
+    // Storage penuh atau tidak tersedia: lewati penyimpanan.
+  }
 
   const header = $("#results-header");
   const active = (data.activeProviders || []).filter((p) => p.enabled);
@@ -367,7 +377,57 @@ function renderResults(data) {
   }
 
   $("#results-disclaimer").innerHTML = esc(DISCLAIMER);
-  $("#results").scrollIntoView({ behavior: "smooth", block: "start" });
+  if (!opts.noScroll) {
+    $("#results").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+function fillForm(input) {
+  $$("input[name='origins']").forEach((cb) => {
+    cb.checked = (input.origins || []).includes(cb.value);
+  });
+  $$("input[name='patterns']").forEach((cb) => {
+    cb.checked = (input.patterns || []).includes(cb.value);
+  });
+  $("#departureStart").value = input.departureStart || "";
+  $("#departureEnd").value = input.departureEnd || "";
+  $("#adults").value = input.adults ?? 1;
+  $("#rooms").value = input.rooms ?? 1;
+  $("#makkahNights").value = input.makkahNights ?? 5;
+  $("#madinahNights").value = input.madinahNights ?? 4;
+  $("#cityOrder").value = input.cityOrder || "AUTO";
+  $("#cabin").value = input.cabin || "economy";
+  $("#maxStops").value = input.maxStops == null ? "" : String(input.maxStops);
+  $("#maxLayoverMinutes").value = input.maxLayoverMinutes == null ? "" : String(input.maxLayoverMinutes);
+  $("#maxTripDurationMinutes").value = input.maxTripDurationMinutes == null ? "" : String(input.maxTripDurationMinutes);
+  $("#makkahRadiusKm").value = input.makkahRadiusKm ?? 5;
+  $("#madinahRadiusKm").value = input.madinahRadiusKm ?? 5;
+  $("#freeCancellationOnly").checked = !!input.freeCancellationOnly;
+  const ages = input.childrenAges || [];
+  $("#childrenCount").value = ages.length;
+  renderChildrenAges();
+  Array.from(document.querySelectorAll("input[name='childAges']")).forEach((inp, i) => {
+    inp.value = ages[i] ?? "";
+  });
+  updateNightsSummary();
+}
+
+function restoreLastResults() {
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(LAST_RESULTS_KEY) || "null");
+  } catch (_e) {
+    saved = null;
+  }
+  if (!saved || !saved.data || !saved.data.results) return;
+  const input = saved.data.constraints;
+  if (input) fillForm(input);
+  renderResults(saved.data, { noScroll: true });
+  const note = document.createElement("p");
+  note.id = "restore-note";
+  note.className = "hint";
+  note.textContent = "Menampilkan hasil dari pencarian terakhir Anda (disimpan otomatis di browser). Tekan \"Cari kombinasi\" untuk memperbarui harga.";
+  $("#results").before(note);
 }
 
 function renderSummaryCards(data) {
@@ -1231,6 +1291,7 @@ function init() {
   $("#results-disclaimer").textContent = DISCLAIMER;
   $("#hotel-reminder").textContent = HOTEL_REMINDER;
 
+  restoreLastResults();
   refreshWatchlist();
   loadCoverageCalendar();
   updateProviderHero();
