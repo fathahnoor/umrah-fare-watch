@@ -87,4 +87,16 @@ Panduan singkat: gunakan bahasa Indonesia, jelaskan masalah dan harapan dengan j
 
 ## Disclaimer
 
+Harga yang ditampilkan hanya mencakup tiket pesawat serta hotel Makkah dan Madinah, belum termasuk berbagai kebutuhan lain dalam perjalanan umrah, antara lain:
+
+- Visa
+- Transportasi darat antarkota (bus atau kereta)
+- Transportasi dalam kota
+- Makanan (misalnya 3x makan sehari)
+- Jasa muthawif atau pembimbing ibadah
+- Tiket ziarah
+- Bagasi atau biaya tambahan yang tidak dinyatakan provider
+- Asuransi
+- Pengeluaran pribadi
+
 Harga dan ketersediaan dapat berubah. Hasil membandingkan provider yang aktif saat data diambil, bukan seluruh penawaran di internet. Periksa kembali total, syarat refund, detail reservasi hotel, persyaratan visa, dan kebijakan provider sebelum booking. Mode demo memakai data sintetis.

@@ -2,7 +2,7 @@
 "use strict";
 
 const DISCLAIMER =
-  "Harga dan ketersediaan dapat berubah. Hasil membandingkan provider yang aktif saat data diambil, bukan seluruh penawaran di internet. Periksa kembali total, syarat refund, detail reservasi hotel, persyaratan visa, dan kebijakan provider sebelum booking.";
+  "Harga yang ditampilkan hanya mencakup tiket pesawat serta hotel Makkah dan Madinah, belum termasuk berbagai kebutuhan lain dalam perjalanan umrah, antara lain: visa, transportasi darat antarkota (bus atau kereta), transportasi dalam kota, makanan (misalnya 3x makan sehari), jasa muthawif atau pembimbing ibadah, tiket ziarah, bagasi atau biaya tambahan yang tidak dinyatakan provider, asuransi, dan pengeluaran pribadi. Harga dan ketersediaan dapat berubah. Hasil membandingkan provider yang aktif saat data diambil, bukan seluruh penawaran di internet. Periksa kembali total, syarat refund, detail reservasi hotel, persyaratan visa, dan kebijakan provider sebelum booking.";
 
 const HOTEL_REMINDER =
   "Setelah memesan, konfirmasikan nomor reservasi langsung ke hotel. Untuk kebutuhan visa, pastikan persyaratan dan proses approval melalui sumber resmi atau provider visa Anda.";
