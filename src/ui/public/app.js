@@ -709,6 +709,24 @@ async function loadCoverageCalendar() {
   }
 }
 
+// Combined card color for a coverage day: flight + both hotels together. The
+// exact per-component state stays visible on the F/MK/MD lines inside the card.
+function coverageDayState(day) {
+  const flight = day.flight;
+  const mk = day.hotelMakkah;
+  const md = day.hotelMadinah;
+  const states = [flight, mk, md];
+  const is = (s) => states.includes(s);
+  const all = (s) => states.every((x) => x === s);
+  if (is("PROVIDER_UNAVAILABLE")) return "UNAVAILABLE";
+  if (flight === "HAS_RESULT" && mk === "HAS_RESULT" && md === "HAS_RESULT") return "READY";
+  if (flight === "HAS_RESULT" && (mk === "HAS_RESULT" || md === "HAS_RESULT")) return "PARTIAL";
+  if (flight === "HAS_RESULT") return "FLIGHT_ONLY";
+  if (all("NOT_YET_SEARCHABLE")) return "FRONTIER";
+  if (is("NO_RESULT")) return "NO_RESULT";
+  return "NOT_SCANNED";
+}
+
 function renderCoverageCalendar(days) {
   let html = "";
   let lastMonthKey = null;
@@ -720,13 +738,21 @@ function renderCoverageCalendar(days) {
       html += `<div class="cov-month">${esc(MONTH_NAMES[dt.getUTCMonth()])} ${dt.getUTCFullYear()}</div>`;
     }
     const clickable = day.flight === "HAS_RESULT";
+    const dayState = coverageDayState(day);
     const fLabel = COVERAGE_SHORT_LABELS[day.flight] || day.flight;
-    const hLabel = COVERAGE_SHORT_LABELS[day.hotel] || day.hotel;
+    const mkLabel = COVERAGE_SHORT_LABELS[day.hotelMakkah] || day.hotelMakkah;
+    const mdLabel = COVERAGE_SHORT_LABELS[day.hotelMadinah] || day.hotelMadinah;
+    const ariaParts = [
+      `flight ${fLabel.toLowerCase()}`,
+      `hotel Makkah ${mkLabel.toLowerCase()}`,
+      `hotel Madinah ${mdLabel.toLowerCase()}`,
+    ];
     html += `
-      <button type="button" class="cov-day${clickable ? " clickable" : ""}" data-cov-date="${esc(day.date)}" ${clickable ? `aria-label="${esc(formatDate(day.date))}, flight tersedia, hotel ${esc(hLabel.toLowerCase())}"` : `aria-label="${esc(formatDate(day.date))}, flight ${esc(fLabel.toLowerCase())}, hotel ${esc(hLabel.toLowerCase())}"`}>
+      <button type="button" class="cov-day${clickable ? " clickable" : ""}" data-day-state="${esc(dayState)}" data-cov-date="${esc(day.date)}" aria-label="${esc(formatDate(day.date))}, ${clickable ? "flight tersedia, " : ""}${ariaParts.map(esc).join(", ")}">
         <span class="cov-date">${dt.getUTCDate()}</span>
         <span class="cov-status cov-f" data-state="${esc(day.flight)}">F ${esc(fLabel)}</span>
-        <span class="cov-status cov-h" data-state="${esc(day.hotel)}">H ${esc(hLabel)}</span>
+        <span class="cov-status cov-h cov-hm" data-state="${esc(day.hotelMakkah)}">MK ${esc(mkLabel)}</span>
+        <span class="cov-status cov-h cov-hd" data-state="${esc(day.hotelMadinah)}">MD ${esc(mdLabel)}</span>
       </button>`;
   }
   return html;

@@ -76,7 +76,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 }
 .header-inner { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 10px; padding-bottom: 10px; }
 .brand { display: inline-flex; align-items: center; gap: 8px; color: var(--white); font-weight: 700; text-decoration: none; font-size: 1.05rem; }
-.brand-mark { font-size: 1.25rem; }
+.brand-mark { font-size: 1.25rem; display: inline-flex; }
+.brand-mark img { display: block; border-radius: 6px; }
 .main-nav { display: flex; gap: 14px; flex-wrap: wrap; }
 .main-nav a { color: var(--emerald-100); text-decoration: none; font-weight: 600; font-size: 0.92rem; padding: 6px 2px; }
 .main-nav a[aria-current="page"] { color: var(--white); border-bottom: 2px solid var(--white); }
@@ -312,8 +313,48 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   min-width: 0;
 }
 .cov-day.clickable { cursor: pointer; }
-.cov-day.clickable:hover { border-color: var(--emerald-600); }
+.cov-day.clickable:hover { border-color: var(--emerald-600); box-shadow: 0 2px 8px rgba(5, 150, 105, 0.2); }
 .cov-day.clickable:focus-visible { outline: 2px solid var(--emerald-700); outline-offset: 2px; }
+
+/* Card tint per combined day state (flight + hotel Makkah + hotel Madinah). */
+.cov-day[data-day-state="READY"], .cov-swatch[data-day-state="READY"] {
+  background: linear-gradient(180deg, #ecfdf5, var(--emerald-100));
+  border-color: var(--emerald-600);
+}
+.cov-day[data-day-state="PARTIAL"], .cov-swatch[data-day-state="PARTIAL"] {
+  background: linear-gradient(180deg, #ffffff, var(--emerald-100));
+  border-color: var(--emerald-600);
+}
+.cov-day[data-day-state="FLIGHT_ONLY"], .cov-swatch[data-day-state="FLIGHT_ONLY"] {
+  background: linear-gradient(180deg, #ffffff, var(--blue-100));
+  border-color: #93c5fd;
+}
+.cov-day[data-day-state="NO_RESULT"], .cov-swatch[data-day-state="NO_RESULT"] {
+  background: linear-gradient(180deg, #ffffff, var(--amber-100));
+  border-color: var(--amber-700);
+}
+.cov-day[data-day-state="FRONTIER"], .cov-swatch[data-day-state="FRONTIER"] {
+  background: var(--sand-100);
+  border-color: var(--gray-200);
+}
+.cov-day[data-day-state="UNAVAILABLE"], .cov-swatch[data-day-state="UNAVAILABLE"] {
+  background: linear-gradient(180deg, #ffffff, var(--danger-100));
+  border-color: var(--danger-700);
+}
+.cov-day[data-day-state="NOT_SCANNED"], .cov-swatch[data-day-state="NOT_SCANNED"] {
+  background: var(--white);
+  border-color: var(--gray-200);
+}
+
+/* Legend swatch for card colors. */
+.cov-swatch {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  border: 1px solid var(--gray-200);
+}
 .cov-date { font-size: 0.8rem; font-weight: 800; color: var(--ink-900); }
 .cov-status { font-size: 0.68rem; line-height: 1.3; color: var(--ink-600); }
 .cov-status[data-state="HAS_RESULT"] { color: var(--emerald-800); font-weight: 700; }

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Umrah Fare Watch - Cari Biaya Umrah Termurah</title>
   <meta name="description" content="Bandingkan tiket pesawat serta hotel Makkah dan Madinah dalam satu total biaya yang transparan.">
+  <link rel="icon" type="image/png" href="/icon.png">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -12,7 +13,7 @@
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="#top" aria-label="Umrah Fare Watch, kembali ke atas">
-        <span class="brand-mark" aria-hidden="true">&#127974;</span>
+        <span class="brand-mark" aria-hidden="true"><img src="/icon.png" alt="" width="22" height="22"></span>
         <span>Umrah Fare Watch</span>
       </a>
       <nav aria-label="Navigasi utama" class="main-nav">
@@ -265,7 +266,7 @@
         <div id="calendar-grid" class="calendar-grid" hidden></div>
         <p id="calendar-note" class="hint" hidden>Klik tanggal untuk langsung mencari kombinasi pada hari itu. Angka adalah total termurah yang ditemukan dari provider aktif, bukan jaminan termurah di seluruh internet.</p>
         <h3 class="results-heading" style="margin-top:32px">Cakupan flight & hotel (365 hari)</h3>
-        <p class="results-sub">Status per tanggal keberangkatan (flight) dan check-in (hotel). Klik tanggal dengan flight tersedia untuk langsung mencari pada hari itu.</p>
+        <p class="results-sub">Status per tanggal keberangkatan (F = flight) dan check-in hotel per kota (MK = Makkah, MD = Madinah). Klik tanggal dengan flight tersedia untuk langsung mencari pada hari itu.</p>
         <p id="coverage-status" role="status" aria-live="polite"></p>
         <div id="coverage-calendar" class="coverage-calendar"></div>
         <h3 class="results-heading" style="margin-top:32px">Status cakupan per tanggal</h3>
@@ -276,6 +277,16 @@
           <li><span class="status-badge" data-state="NO_RESULT">Tanpa hasil</span> Provider aktif sudah dicari, belum ada hasil</li>
           <li><span class="status-badge" data-state="NOT_YET_SEARCHABLE">Belum bisa dicari</span> Tanggal di luar jangkauan pencarian hotel (frontier)</li>
           <li><span class="status-badge" data-state="PROVIDER_UNAVAILABLE">Provider sibuk</span> Provider sedang tidak dapat digunakan</li>
+        </ul>
+        <p>Setiap tanggal menampilkan <strong>F</strong> (flight), <strong>MK</strong> (hotel Makkah), dan <strong>MD</strong> (hotel Madinah) secara terpisah — misalnya Makkah sudah tersedia sementara Madinah belum dipindai. Anda bisa memutuskan apakah akan lanjut memproses dari info yang ada.</p>
+        <p>Warna kartu tanggal menunjukkan kondisi gabungan flight dan kedua hotel:</p>
+        <ul class="status-legend">
+          <li><span class="cov-swatch" data-day-state="READY"></span> Semua tersedia (flight + hotel Makkah + hotel Madinah) — siap diproses lengkap</li>
+          <li><span class="cov-swatch" data-day-state="PARTIAL"></span> Flight tersedia + sebagian hotel tersedia</li>
+          <li><span class="cov-swatch" data-day-state="FLIGHT_ONLY"></span> Flight tersedia, hotel belum dipindai</li>
+          <li><span class="cov-swatch" data-day-state="NO_RESULT"></span> Ada komponen yang dicari tetapi tanpa hasil</li>
+          <li><span class="cov-swatch" data-day-state="FRONTIER"></span> Di luar jangkauan pencarian hotel (frontier)</li>
+          <li><span class="cov-swatch" data-day-state="UNAVAILABLE"></span> Provider sibuk</li>
         </ul>
         <p>Flight dan hotel memakai horizon terpisah. Sebuah tanggal bisa dapat dicari untuk tiket tetapi belum untuk hotel, dan sebaliknya.</p>
       </div>

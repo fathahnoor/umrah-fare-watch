@@ -26,13 +26,16 @@ describe("coverage scheduler + calendar (02_LONG_HORIZON_MONITORING)", () => {
       const day1 = body.days.find((d: { date: string }) => d.date === "2029-06-02");
       expect(day1.flight).toBe("HAS_RESULT");
       // No exact hotel search has run: within the frontier it stays NOT_SCANNED.
-      expect(day1.hotel).toBe("NOT_SCANNED");
+      expect(day1.hotelMakkah).toBe("NOT_SCANNED");
+      expect(day1.hotelMadinah).toBe("NOT_SCANNED");
 
       const day331 = body.days.find((d: { date: string }) => d.date === "2030-04-28");
-      expect(day331.hotel).toBe("NOT_YET_SEARCHABLE");
+      expect(day331.hotelMakkah).toBe("NOT_YET_SEARCHABLE");
+      expect(day331.hotelMadinah).toBe("NOT_YET_SEARCHABLE");
       const day364 = body.days.find((d: { date: string }) => d.date === "2030-06-01");
       expect(day364.flight).toBe("HAS_RESULT");
-      expect(day364.hotel).toBe("NOT_YET_SEARCHABLE");
+      expect(day364.hotelMakkah).toBe("NOT_YET_SEARCHABLE");
+      expect(day364.hotelMadinah).toBe("NOT_YET_SEARCHABLE");
     });
   });
 
@@ -52,7 +55,11 @@ describe("coverage scheduler + calendar (02_LONG_HORIZON_MONITORING)", () => {
       const calRes = await fetch(`${baseUrl}/api/coverage/calendar?start=2029-12-01&end=2029-12-20`);
       const cal = (await calRes.json()) as any;
       const day = cal.days.find((d: { date: string }) => d.date === checkIn);
-      expect(day.hotel).toBe("HAS_RESULT");
+      // Only the Makkah check-in date was searched: Makkah is available while
+      // Madinah on the same date is still NOT_SCANNED (its own check-in is
+      // later). This is the per-city distinction the calendar UI relies on.
+      expect(day.hotelMakkah).toBe("HAS_RESULT");
+      expect(day.hotelMadinah).toBe("NOT_SCANNED");
     });
   });
 
@@ -67,7 +74,8 @@ describe("coverage scheduler + calendar (02_LONG_HORIZON_MONITORING)", () => {
       const calRes = await fetch(`${baseUrl}/api/coverage/calendar?start=2030-04-28&end=2030-04-29`);
       const cal = (await calRes.json()) as any;
       for (const day of cal.days) {
-        expect(day.hotel).toBe("NOT_YET_SEARCHABLE");
+        expect(day.hotelMakkah).toBe("NOT_YET_SEARCHABLE");
+        expect(day.hotelMadinah).toBe("NOT_YET_SEARCHABLE");
       }
     });
   });

@@ -12,7 +12,7 @@ import {
 } from "../domain/coveragePlan.js";
 import { addDays } from "../domain/dates.js";
 import { hotelCheckInState } from "../domain/horizons.js";
-import type { AvailabilityState, CoverageRecord, ItineraryPattern } from "../domain/types.js";
+import type { AvailabilityState, City, CoverageRecord, ItineraryPattern } from "../domain/types.js";
 import { activeFlightProvider, activeHotelProvider, type ProviderRegistry } from "../providers/registry.js";
 import type { CoverageRepo } from "../store/coverage.js";
 
@@ -27,7 +27,8 @@ const COVERAGE_PATTERNS: ItineraryPattern[] = [
 export interface CalendarDay {
   date: string;
   flight: AvailabilityState;
-  hotel: AvailabilityState;
+  hotelMakkah: AvailabilityState;
+  hotelMadinah: AvailabilityState;
 }
 
 export interface CoverageScanResult {
@@ -202,11 +203,19 @@ export class CoverageService {
     for (const row of flightRows) {
       flightByDate.set(row.date, row.availabilityState);
     }
-    const hotelByDate = new Map<string, AvailabilityState[]>();
+    // Hotel rows are recorded per city (MAKKAH/MADINAH); keep them separate so
+    // the calendar can show that e.g. Makkah is available while Madinah is not
+    // yet searched, letting the user decide whether to proceed.
+    const hotelByCityDate = new Map<City, Map<string, AvailabilityState[]>>();
     for (const row of hotelRows) {
-      const list = hotelByDate.get(row.date) ?? [];
+      if (!row.city) {
+        continue;
+      }
+      const byDate = hotelByCityDate.get(row.city) ?? new Map();
+      const list = byDate.get(row.date) ?? [];
       list.push(row.availabilityState);
-      hotelByDate.set(row.date, list);
+      byDate.set(row.date, list);
+      hotelByCityDate.set(row.city, byDate);
     }
 
     const days: CalendarDay[] = [];
@@ -215,11 +224,17 @@ export class CoverageService {
     const frontierDays = this.config.mockHotelFrontierDays;
     while (cursor <= end && guard < 500) {
       const flight = flightByDate.get(cursor) ?? "NOT_SCANNED";
-      let hotel = mergeHotelStates(hotelByDate.get(cursor) ?? []);
-      if (hotel === "NOT_SCANNED" && hotelCheckInState(cursor, now, frontierDays) === "NOT_YET_SEARCHABLE") {
-        hotel = "NOT_YET_SEARCHABLE";
+      let hotelMakkah = mergeHotelStates(hotelByCityDate.get("MAKKAH")?.get(cursor) ?? []);
+      let hotelMadinah = mergeHotelStates(hotelByCityDate.get("MADINAH")?.get(cursor) ?? []);
+      if (hotelCheckInState(cursor, now, frontierDays) === "NOT_YET_SEARCHABLE") {
+        if (hotelMakkah === "NOT_SCANNED") {
+          hotelMakkah = "NOT_YET_SEARCHABLE";
+        }
+        if (hotelMadinah === "NOT_SCANNED") {
+          hotelMadinah = "NOT_YET_SEARCHABLE";
+        }
       }
-      days.push({ date: cursor, flight, hotel });
+      days.push({ date: cursor, flight, hotelMakkah, hotelMadinah });
       cursor = addDays(cursor, 1);
       guard += 1;
     }
