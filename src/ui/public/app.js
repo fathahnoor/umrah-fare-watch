@@ -856,7 +856,7 @@ function watchlistCard(w) {
           <h4 class="watchlist-title">${esc(label)}</h4>
           <p class="plan-meta">${esc(meta)}</p>
         </div>
-        <div class="badge-row">${badge("INDICATIVE_COMPLETE", typeBadge)}</div>
+        <div class="badge-row">${badge("INDICATIVE_COMPLETE", typeBadge)}${w.thresholdIdrMinor != null ? badge("LIVE_COMPLETE", "Alert aktif") : ""}</div>
       </div>
       <div class="breakdown">
         <div class="breakdown-row"><span class="label">Total saat dipantau</span><span class="value">${formatIdr(w.baselineTotalIdrMinor)}</span></div>
@@ -867,6 +867,7 @@ function watchlistCard(w) {
       ${dropNote}
       <div class="plan-actions">
         <button type="button" class="btn btn-primary" data-wl-check="${esc(w.id)}">Periksa sekarang</button>
+        <button type="button" class="btn btn-ghost" data-wl-budget="${esc(w.id)}">${w.thresholdIdrMinor != null ? "Ubah budget" : "Set budget"}</button>
         <button type="button" class="btn btn-ghost" data-wl-delete="${esc(w.id)}">Hapus</button>
       </div>
     </article>`;
@@ -885,18 +886,63 @@ function watchlistMeta(w) {
   return `${esc(formatDate(input.departureStart))} sampai ${esc(formatDate(input.departureEnd))} &middot; ${esc(input.adults)} dewasa${input.childrenAges && input.childrenAges.length ? `, ${esc(input.childrenAges.length)} anak` : ""} &middot; ${esc(input.rooms)} kamar`;
 }
 
-async function watchPlan(planId) {
+function watchPlan(planId) {
   if (!lastResults || !lastResults.constraints) return;
   const plan = lastResults.results.find((p) => p.id === planId);
-  const status = $("#watchlist-status");
   const label = plan
     ? `Umroh ${formatDate(plan.dates.makkahCheckIn)} - ${formatDate(plan.dates.madinahCheckOut)}`
     : "Pantauan baru";
+  document.querySelector(".watch-budget-form")?.remove();
+  const btn = Array.from(document.querySelectorAll("[data-watch-plan]")).find(
+    (b) => b.getAttribute("data-watch-plan") === planId,
+  );
+  const card = btn ? btn.closest(".plan-card") : null;
+  const form = document.createElement("div");
+  form.className = "watch-budget-form form-group";
+  form.innerHTML = `
+    <p class="hint" style="margin-top:0"><strong>Simpan pantauan ini?</strong> Isi budget total (opsional) agar alert muncul saat total mencapai budget Anda. Kosongkan jika hanya ingin alert saat harga turun.</p>
+    <div class="form-row">
+      <div class="field">
+        <label for="watch-budget-input">Budget total (Rp)</label>
+        <input type="number" id="watch-budget-input" min="1" step="100000" inputmode="numeric" placeholder="misal 25000000">
+      </div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <button type="button" class="btn btn-primary" id="watch-budget-save">Simpan pantauan</button>
+      </div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <button type="button" class="btn btn-ghost" id="watch-budget-cancel">Batal</button>
+      </div>
+    </div>`;
+  if (card && card.parentNode) {
+    card.after(form);
+  }
+  form.scrollIntoView({ behavior: "smooth", block: "center" });
+  form.querySelector("#watch-budget-save").addEventListener("click", () =>
+    saveWatchlist(label, form.querySelector("#watch-budget-input").value),
+  );
+  form.querySelector("#watch-budget-cancel").addEventListener("click", () => form.remove());
+  form.querySelector("#watch-budget-input").focus();
+}
+
+function parseBudget(raw) {
+  const n = Number(String(raw ?? "").replace(/[.\s]/g, ""));
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+async function saveWatchlist(label, rawBudget) {
+  const status = $("#watchlist-status");
+  const thresholdIdrMinor = parseBudget(rawBudget);
+  const payload = { input: lastResults.constraints, label };
+  if (thresholdIdrMinor != null) {
+    payload.thresholdIdrMinor = thresholdIdrMinor;
+  }
   try {
     const res = await fetch("/api/watchlist", {
       method: "POST",
       headers: sessionHeaders(),
-      body: JSON.stringify({ input: lastResults.constraints, label }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       let message = "Gagal menyimpan pantauan";
@@ -907,12 +953,68 @@ async function watchPlan(planId) {
       status.textContent = message;
       return;
     }
+    document.querySelector(".watch-budget-form")?.remove();
     await refreshWatchlist();
-    status.textContent = "Pantauan tersimpan. Alert akan muncul di seksi Pantauan Saya saat harga turun.";
+    status.textContent =
+      thresholdIdrMinor != null
+        ? `Pantauan tersimpan. Alert aktif: Anda akan diberi tahu saat total ${formatIdr(thresholdIdrMinor)} atau saat harga turun.`
+        : "Pantauan tersimpan. Alert akan muncul saat harga turun dari total saat ini.";
     document.getElementById("pantauan")?.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (_err) {
     status.textContent = "Gagal menyimpan pantauan, coba lagi.";
   }
+}
+
+async function editWatchlistBudget(id) {
+  document.querySelector(".wl-budget-form")?.remove();
+  const card = document.querySelector(`[data-wl-id="${CSS.escape(id)}"]`);
+  if (!card) return;
+  const form = document.createElement("div");
+  form.className = "wl-budget-form form-group";
+  form.innerHTML = `
+    <p class="hint" style="margin-top:0">Alert aktif saat total &le; budget, atau saat harga turun dari total terakhir. Kosongkan untuk menonaktifkan alert budget (alert harga turun tetap aktif).</p>
+    <div class="form-row">
+      <div class="field">
+        <label for="wl-budget-input">Budget total (Rp)</label>
+        <input type="number" id="wl-budget-input" min="1" step="100000" inputmode="numeric" placeholder="misal 25000000">
+      </div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <button type="button" class="btn btn-primary" id="wl-budget-save">Simpan budget</button>
+      </div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <button type="button" class="btn btn-ghost" id="wl-budget-cancel">Batal</button>
+      </div>
+    </div>`;
+  card.appendChild(form);
+  form.querySelector("#wl-budget-input").focus();
+  form.querySelector("#wl-budget-save").addEventListener("click", async () => {
+    const thresholdIdrMinor = parseBudget(form.querySelector("#wl-budget-input").value);
+    const status = $("#watchlist-status");
+    try {
+      const res = await fetch(`/api/watchlist/${encodeURIComponent(id)}/budget`, {
+        method: "POST",
+        headers: sessionHeaders(),
+        body: JSON.stringify({ thresholdIdrMinor }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        status.textContent = body.errors && body.errors[0] ? body.errors[0].message : "Gagal menyimpan budget.";
+        return;
+      }
+      form.remove();
+      await refreshWatchlist();
+      status.textContent =
+        thresholdIdrMinor != null
+          ? `Alert budget aktif di ${formatIdr(thresholdIdrMinor)}. Memeriksa ulang harga...`
+          : "Alert budget dinonaktifkan. Alert saat harga turun tetap aktif.";
+      await checkWatchlist(id);
+    } catch (_err) {
+      status.textContent = "Gagal menyimpan budget, coba lagi.";
+    }
+  });
+  form.querySelector("#wl-budget-cancel").addEventListener("click", () => form.remove());
 }
 
 async function checkWatchlist(id) {
@@ -1057,6 +1159,11 @@ function init() {
     const checkBtn = event.target.closest("[data-wl-check]");
     if (checkBtn) {
       checkWatchlist(checkBtn.getAttribute("data-wl-check"));
+      return;
+    }
+    const budgetBtn = event.target.closest("[data-wl-budget]");
+    if (budgetBtn) {
+      editWatchlistBudget(budgetBtn.getAttribute("data-wl-budget"));
       return;
     }
     const deleteBtn = event.target.closest("[data-wl-delete]");

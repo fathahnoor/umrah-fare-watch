@@ -122,6 +122,30 @@ export class WatchlistService {
     return this.repo.deleteWatchlist(id, ownerToken);
   }
 
+  /** Set or clear the budget threshold that triggers an alert on reach. */
+  setBudget(
+    ownerToken: string,
+    id: string,
+    thresholdIdrMinor: number | null,
+  ): WatchlistOutcome<{ watchlist: WatchlistRecord }> {
+    if (thresholdIdrMinor != null && (!Number.isInteger(thresholdIdrMinor) || thresholdIdrMinor <= 0)) {
+      return {
+        ok: false,
+        issues: [{ field: "thresholdIdrMinor", code: "VALIDATION_ERROR", message: "Budget harus angka bulat positif" }],
+      };
+    }
+    const watchlist = this.repo.getWatchlist(id, ownerToken);
+    if (!watchlist) {
+      return {
+        ok: false,
+        issues: [{ field: "id", code: "NOT_FOUND", message: "Pantauan tidak ditemukan untuk pengguna ini" }],
+      };
+    }
+    this.repo.updateThreshold(id, ownerToken, thresholdIdrMinor);
+    const updated = this.repo.getWatchlist(id, ownerToken);
+    return { ok: true, data: { watchlist: updated as WatchlistRecord } };
+  }
+
   alerts(ownerToken: string, limit = 20): AlertEventRecord[] {
     return this.repo.listAlertEvents(ownerToken, limit);
   }

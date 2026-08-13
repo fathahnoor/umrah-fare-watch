@@ -196,6 +196,25 @@ export function createRoutes(deps: RouteDeps): Router {
     res.json(outcome.data);
   });
 
+  router.post("/watchlist/:id/budget", (req: Request, res: Response) => {
+    const userId = requireUser(deps, req, res);
+    if (userId == null) return;
+    const raw = req.body?.thresholdIdrMinor;
+    const thresholdIdrMinor = raw == null || raw === "" ? null : Number(raw);
+    const outcome = deps.watchlistService.setBudget(userId, req.params.id as string, thresholdIdrMinor);
+    if (!outcome.ok) {
+      const notFound = outcome.issues.some((i) => i.code === "NOT_FOUND");
+      res.status(notFound ? 404 : 400).json({
+        code: notFound ? "NOT_FOUND" : "VALIDATION_ERROR",
+        errors: outcome.issues,
+        retryable: false,
+        correlationId: res.locals.correlationId,
+      });
+      return;
+    }
+    res.json(outcome.data);
+  });
+
   router.get("/alerts", (req: Request, res: Response) => {
     const userId = requireUser(deps, req, res);
     if (userId == null) return;

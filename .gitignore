@@ -23,6 +23,12 @@ Thumbs.db
 # Local SQLite database (server data, never commit)
 data/
 
+# Transient PID file written by scripts/start-local.bat
+.server.pid
+
+# Debug screenshots (never commit)
+snap/
+
 
 # Editor
 .idea/

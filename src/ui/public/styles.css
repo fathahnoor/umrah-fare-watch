@@ -364,6 +364,12 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .cov-status[data-state="NO_RESULT"] { color: var(--amber-700); }
 
 /* Watchlist + alerts */
+.watch-budget-form, .wl-budget-form {
+  background: var(--sand-50);
+  box-shadow: none;
+}
+.watch-budget-form { margin: 14px 0 0; }
+.wl-budget-form { margin: 14px 0 0; }
 .watchlist-card {
   background: var(--white);
   border: 1px solid var(--gray-200);

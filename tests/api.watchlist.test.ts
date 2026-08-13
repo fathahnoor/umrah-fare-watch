@@ -116,6 +116,51 @@ describe("API watchlist + alerts (07_ALERTS_AND_SCHEDULER MVP slice)", () => {
     });
   });
 
+  it("sets a budget on an existing watchlist and fires a budget alert on re-check", async () => {
+    await withServer(TEST_NOW, async (baseUrl) => {
+      const token = await registerAndLogin(baseUrl, "g@example.com");
+      const created = await postWatchlist(baseUrl, token, {
+        input: baseInput({ departureStart: "2029-12-05", departureEnd: "2029-12-05" }),
+      });
+      const body = (await created.json()) as any;
+      const id = body.watchlist.id as string;
+
+      // No budget yet: immediate check creates no alert.
+      const before = await checkWatchlist(baseUrl, token, id);
+      expect(before.createdEvents.length).toBe(0);
+
+      // Set a huge budget so the current total is at or below it.
+      const budgetRes = await fetch(`${baseUrl}/api/watchlist/${id}/budget`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Session-Token": token },
+        body: JSON.stringify({ thresholdIdrMinor: 99_999_999_999 }),
+      });
+      expect(budgetRes.status).toBe(200);
+      const budgetBody = (await budgetRes.json()) as any;
+      expect(budgetBody.watchlist.thresholdIdrMinor).toBe(99_999_999_999);
+
+      const after = await checkWatchlist(baseUrl, token, id);
+      expect(after.createdEvents.length).toBe(1);
+      expect(after.createdEvents[0].currentTotalIdrMinor).toBeLessThanOrEqual(99_999_999_999);
+
+      // Invalid budget is rejected.
+      const bad = await fetch(`${baseUrl}/api/watchlist/${id}/budget`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Session-Token": token },
+        body: JSON.stringify({ thresholdIdrMinor: -5 }),
+      });
+      expect(bad.status).toBe(400);
+
+      // Unknown id returns 404.
+      const missing = await fetch(`${baseUrl}/api/watchlist/nope/budget`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Session-Token": token },
+        body: JSON.stringify({ thresholdIdrMinor: 1000 }),
+      });
+      expect(missing.status).toBe(404);
+    });
+  });
+
   it("deletes a watchlist and returns 404 for unknown ids", async () => {
     await withServer(TEST_NOW, async (baseUrl) => {
       const token = await registerAndLogin(baseUrl, "f@example.com");

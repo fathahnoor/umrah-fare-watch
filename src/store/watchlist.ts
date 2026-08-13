@@ -10,6 +10,7 @@ export interface WatchlistRepo {
   getWatchlist(id: string, ownerToken: string): WatchlistRecord | null;
   listWatchlists(ownerToken: string): WatchlistRecord[];
   deleteWatchlist(id: string, ownerToken: string): boolean;
+  updateThreshold(id: string, ownerToken: string, thresholdIdrMinor: number | null): void;
   updateCheckResult(
     id: string,
     ownerToken: string,
@@ -80,6 +81,12 @@ export class SqliteWatchlistRepo implements WatchlistRepo {
       .prepare("DELETE FROM watchlists WHERE id = ? AND owner_token = ?")
       .run(id, ownerToken);
     return result.changes > 0;
+  }
+
+  updateThreshold(id: string, ownerToken: string, thresholdIdrMinor: number | null): void {
+    this.db
+      .prepare("UPDATE watchlists SET threshold_idr_minor = ? WHERE id = ? AND owner_token = ?")
+      .run(thresholdIdrMinor, id, ownerToken);
   }
 
   updateCheckResult(
