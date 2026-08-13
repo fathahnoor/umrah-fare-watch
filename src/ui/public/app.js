@@ -867,7 +867,7 @@ function watchlistCard(w) {
       ${dropNote}
       <div class="plan-actions">
         <button type="button" class="btn btn-primary" data-wl-check="${esc(w.id)}">Periksa sekarang</button>
-        <button type="button" class="btn btn-ghost" data-wl-budget="${esc(w.id)}">${w.thresholdIdrMinor != null ? "Ubah budget" : "Set budget"}</button>
+        <button type="button" class="btn btn-ghost" data-wl-budget="${esc(w.id)}" data-wl-budget-val="${esc(w.thresholdIdrMinor ?? "")}">${w.thresholdIdrMinor != null ? "Ubah budget" : "Set budget"}</button>
         <button type="button" class="btn btn-ghost" data-wl-delete="${esc(w.id)}">Hapus</button>
       </div>
     </article>`;
@@ -904,7 +904,7 @@ function watchPlan(planId) {
     <div class="form-row">
       <div class="field">
         <label for="watch-budget-input">Budget total (Rp)</label>
-        <input type="number" id="watch-budget-input" min="1" step="100000" inputmode="numeric" placeholder="misal 25000000">
+        <input type="text" id="watch-budget-input" inputmode="numeric" autocomplete="off" placeholder="misal 25.000.000">
       </div>
       <div class="field">
         <label>&nbsp;</label>
@@ -919,16 +919,42 @@ function watchPlan(planId) {
     card.after(form);
   }
   form.scrollIntoView({ behavior: "smooth", block: "center" });
+  const budgetInput = form.querySelector("#watch-budget-input");
+  budgetInput.addEventListener("input", () => budgetInputFormatter(budgetInput));
   form.querySelector("#watch-budget-save").addEventListener("click", () =>
-    saveWatchlist(label, form.querySelector("#watch-budget-input").value),
+    saveWatchlist(label, budgetInput.value),
   );
   form.querySelector("#watch-budget-cancel").addEventListener("click", () => form.remove());
-  form.querySelector("#watch-budget-input").focus();
+  budgetInput.focus();
 }
 
 function parseBudget(raw) {
   const n = Number(String(raw ?? "").replace(/[.\s]/g, ""));
   return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+// Format angka dengan separator titik (format Rupiah) saat diketik, misal
+// 25000000 menjadi 25.000.000, agar mudah memastikan jumlah nolnya benar.
+function formatBudgetInput(raw) {
+  const digits = String(raw ?? "").replace(/\D/g, "").slice(0, 12);
+  return digits ? digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".") : "";
+}
+
+function budgetInputFormatter(input) {
+  const digitsBeforeCaret = input.value.slice(0, input.selectionStart ?? 0).replace(/\D/g, "").length;
+  const formatted = formatBudgetInput(input.value);
+  if (formatted === input.value) return;
+  input.value = formatted;
+  let caret = formatted.length;
+  let seen = 0;
+  for (let i = 0; i < formatted.length; i += 1) {
+    if (/\d/.test(formatted[i])) seen += 1;
+    if (seen >= digitsBeforeCaret) {
+      caret = i + 1;
+      break;
+    }
+  }
+  input.setSelectionRange(caret, caret);
 }
 
 async function saveWatchlist(label, rawBudget) {
@@ -976,7 +1002,7 @@ async function editWatchlistBudget(id) {
     <div class="form-row">
       <div class="field">
         <label for="wl-budget-input">Budget total (Rp)</label>
-        <input type="number" id="wl-budget-input" min="1" step="100000" inputmode="numeric" placeholder="misal 25000000">
+        <input type="text" id="wl-budget-input" inputmode="numeric" autocomplete="off" placeholder="misal 25.000.000">
       </div>
       <div class="field">
         <label>&nbsp;</label>
@@ -988,7 +1014,13 @@ async function editWatchlistBudget(id) {
       </div>
     </div>`;
   card.appendChild(form);
-  form.querySelector("#wl-budget-input").focus();
+  const budgetInput = form.querySelector("#wl-budget-input");
+  const currentVal = card.querySelector("[data-wl-budget]")?.getAttribute("data-wl-budget-val") || "";
+  if (currentVal) {
+    budgetInput.value = formatBudgetInput(currentVal);
+  }
+  budgetInput.addEventListener("input", () => budgetInputFormatter(budgetInput));
+  budgetInput.focus();
   form.querySelector("#wl-budget-save").addEventListener("click", async () => {
     const thresholdIdrMinor = parseBudget(form.querySelector("#wl-budget-input").value);
     const status = $("#watchlist-status");
