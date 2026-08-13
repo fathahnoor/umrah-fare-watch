@@ -317,30 +317,30 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .cov-day.clickable:focus-visible { outline: 2px solid var(--emerald-700); outline-offset: 2px; }
 
 /* Card tint per combined day state (flight + hotel Makkah + hotel Madinah).
-   Six clearly distinguishable hues: green, teal, blue, amber, gray, red. */
+   Six hues with no ambiguity: green, yellow, blue, orange, gray, red. */
 .cov-day[data-day-state="READY"], .cov-swatch[data-day-state="READY"] {
-  background: linear-gradient(180deg, var(--emerald-100), #a7f3d0);
-  border-color: var(--emerald-700);
+  background: linear-gradient(180deg, #dcfce7, #bbf7d0);
+  border-color: #16a34a;
 }
 .cov-day[data-day-state="PARTIAL"], .cov-swatch[data-day-state="PARTIAL"] {
-  background: linear-gradient(180deg, #ccfbf1, #99f6e4);
-  border-color: #0f766e;
+  background: linear-gradient(180deg, #fef9c3, #fef08a);
+  border-color: #ca8a04;
 }
 .cov-day[data-day-state="FLIGHT_ONLY"], .cov-swatch[data-day-state="FLIGHT_ONLY"] {
-  background: linear-gradient(180deg, var(--blue-100), #bfdbfe);
-  border-color: var(--blue-700);
+  background: linear-gradient(180deg, #dbeafe, #bfdbfe);
+  border-color: #2563eb;
 }
 .cov-day[data-day-state="NO_RESULT"], .cov-swatch[data-day-state="NO_RESULT"] {
-  background: linear-gradient(180deg, var(--amber-100), #fde68a);
-  border-color: var(--amber-700);
+  background: linear-gradient(180deg, #ffedd5, #fed7aa);
+  border-color: #ea580c;
 }
 .cov-day[data-day-state="FRONTIER"], .cov-swatch[data-day-state="FRONTIER"] {
-  background: linear-gradient(180deg, #f3f4f6, var(--gray-200));
+  background: linear-gradient(180deg, #f3f4f6, #e5e7eb);
   border-color: #9ca3af;
 }
 .cov-day[data-day-state="UNAVAILABLE"], .cov-swatch[data-day-state="UNAVAILABLE"] {
-  background: linear-gradient(180deg, var(--danger-100), #fecaca);
-  border-color: var(--danger-700);
+  background: linear-gradient(180deg, #fee2e2, #fecaca);
+  border-color: #dc2626;
 }
 .cov-day[data-day-state="NOT_SCANNED"], .cov-swatch[data-day-state="NOT_SCANNED"] {
   background: var(--white);
