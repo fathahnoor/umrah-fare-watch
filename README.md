@@ -11,7 +11,7 @@ Spesifikasi kanonis berada di `umrah-fare-watch-spec/`. Dokumen tersebut adalah 
 - **Mode data:** aplikasi otomatis memilih sumber data. Tanpa kredensial ia berjalan di mode demo (mock deterministik, tanpa jaringan); begitu kredensial provider real tersedia di server, ia beralih ke data live.
 - **Provider live aktif:** **Google Flights** (tiket) dan **Google Hotels** (hotel Makkah/Madinah) melalui SerpAPI, dengan konversi FX live ke IDR. Provider lain tersedia sebagai adapter (Travelpayouts/Aviasales, Duffel) dan aktif sesuai kondisi pasar masing-masing.
 - **Fitur inti:** pencarian kombinasi, kalender harga, kalender cakupan per kota, watchlist + alert, dan alur lanjut-booking aman (detail di seksi Fitur).
-- **Kualitas:** release gate otomatis (`npm run release-gate`) yang menjalankan typecheck, lint, test, build, smoke test, dan validasi spesifikasi. Data provider real hanya ditampilkan setelah smoke test server-side untuk rute Indonesia lulus, demi menjaga kejujuran data.
+- **Kualitas:** release gate otomatis (`npm run release-gate`) yang menjalankan typecheck, lint, test, build, smoke test, dan validasi spesifikasi. Data provider real hanya ditampilkan setelah smoke test server-side untuk rute Indonesia lulus, demi menjaga keterbukaan data.
 
 Catatan: angka fitur dan milestone berubah cepat; detail terkini ada di `umrah-fare-watch-spec/progress.md`, bukan di README ini.
 
@@ -76,7 +76,7 @@ scripts/        smoke tests, copy-ui.mjs, release-gate.ts
 
 ## Berkontribusi
 
-Repo ini terbuka untuk siapa saja yang peduli pada kejujuran biaya Umrah:
+Repo ini terbuka untuk siapa saja yang peduli pada keterbukaan biaya Umrah:
 
 - **Developer:** buka issue untuk bug/ide, atau kirim pull request. Mulai dari `umrah-fare-watch-spec/10_FREEBUFF_MASTER_PROMPT.md` dan `12_HANDOFF_TO_FREEBUFF.md` untuk konteks, lalu pastikan `npm run release-gate` lulus sebelum mengajukan PR.
 - **Pengusaha travel dan KBIHU:** Anda tahu kebutuhan nyata jamaah dan seluk-beluk paket. Saran fitur, data, atau koreksi asumsi bisnis sangat berharga - buka issue dengan label diskusi atau tulis di bagian saran.
