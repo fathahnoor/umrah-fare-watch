@@ -316,29 +316,30 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .cov-day.clickable:hover { border-color: var(--emerald-600); box-shadow: 0 2px 8px rgba(5, 150, 105, 0.2); }
 .cov-day.clickable:focus-visible { outline: 2px solid var(--emerald-700); outline-offset: 2px; }
 
-/* Card tint per combined day state (flight + hotel Makkah + hotel Madinah). */
+/* Card tint per combined day state (flight + hotel Makkah + hotel Madinah).
+   Six clearly distinguishable hues: green, teal, blue, amber, gray, red. */
 .cov-day[data-day-state="READY"], .cov-swatch[data-day-state="READY"] {
-  background: linear-gradient(180deg, #ecfdf5, var(--emerald-100));
-  border-color: var(--emerald-600);
+  background: linear-gradient(180deg, var(--emerald-100), #a7f3d0);
+  border-color: var(--emerald-700);
 }
 .cov-day[data-day-state="PARTIAL"], .cov-swatch[data-day-state="PARTIAL"] {
-  background: linear-gradient(180deg, #ffffff, var(--emerald-100));
-  border-color: var(--emerald-600);
+  background: linear-gradient(180deg, #ccfbf1, #99f6e4);
+  border-color: #0f766e;
 }
 .cov-day[data-day-state="FLIGHT_ONLY"], .cov-swatch[data-day-state="FLIGHT_ONLY"] {
-  background: linear-gradient(180deg, #ffffff, var(--blue-100));
-  border-color: #93c5fd;
+  background: linear-gradient(180deg, var(--blue-100), #bfdbfe);
+  border-color: var(--blue-700);
 }
 .cov-day[data-day-state="NO_RESULT"], .cov-swatch[data-day-state="NO_RESULT"] {
-  background: linear-gradient(180deg, #ffffff, var(--amber-100));
+  background: linear-gradient(180deg, var(--amber-100), #fde68a);
   border-color: var(--amber-700);
 }
 .cov-day[data-day-state="FRONTIER"], .cov-swatch[data-day-state="FRONTIER"] {
-  background: var(--sand-100);
-  border-color: var(--gray-200);
+  background: linear-gradient(180deg, #f3f4f6, var(--gray-200));
+  border-color: #9ca3af;
 }
 .cov-day[data-day-state="UNAVAILABLE"], .cov-swatch[data-day-state="UNAVAILABLE"] {
-  background: linear-gradient(180deg, #ffffff, var(--danger-100));
+  background: linear-gradient(180deg, var(--danger-100), #fecaca);
   border-color: var(--danger-700);
 }
 .cov-day[data-day-state="NOT_SCANNED"], .cov-swatch[data-day-state="NOT_SCANNED"] {

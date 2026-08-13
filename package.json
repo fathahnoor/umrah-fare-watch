@@ -12,7 +12,7 @@
     "start": "node dist/api/server.js",
     "build": "tsc -p tsconfig.build.json && node scripts/copy-ui.mjs",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src scripts tests",
+    "lint": "eslint src scripts tests && node scripts/check-typography.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "smoke": "tsx scripts/smoke-mock.ts",
