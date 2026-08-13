@@ -2,7 +2,7 @@
 "use strict";
 
 const DISCLAIMER =
-  "Harga dan ketersediaan dapat berubah. Hasil membandingkan provider yang aktif saat observasi, bukan seluruh penawaran di internet. Verifikasi total, syarat refund, detail reservasi hotel, persyaratan visa, dan kebijakan provider sebelum booking.";
+  "Harga dan ketersediaan dapat berubah. Hasil membandingkan provider yang aktif saat data diambil, bukan seluruh penawaran di internet. Periksa kembali total, syarat refund, detail reservasi hotel, persyaratan visa, dan kebijakan provider sebelum booking.";
 
 const HOTEL_REMINDER =
   "Setelah memesan, konfirmasikan nomor reservasi langsung ke hotel. Untuk kebutuhan visa, pastikan persyaratan dan proses approval melalui sumber resmi atau provider visa Anda.";
@@ -329,7 +329,7 @@ function renderResults(data) {
   const madinahBadge = badge(data.coverage.madinahHotel, STATE_LABELS[data.coverage.madinahHotel] || data.coverage.madinahHotel);
   header.innerHTML = `
     <h2>Hasil pencarian</h2>
-    <p><strong>Provider aktif:</strong> ${esc(providers)} (${esc(sourceLabel)}). Waktu observasi: ${esc(formatDateTime(data.observedAt))}.</p>
+    <p><strong>Provider aktif:</strong> ${esc(providers)} (${esc(sourceLabel)}). Data diambil: ${esc(formatDateTime(data.observedAt))}.</p>
     <p><strong>Cakupan:</strong> Tiket ${badge(data.coverage.flight, STATE_LABELS[data.coverage.flight] || data.coverage.flight)} &nbsp; Hotel Makkah ${makkahBadge} &nbsp; Hotel Madinah ${madinahBadge}</p>
     ${data.coverage.hotelFrontierDate ? `<p>Hotel dapat dicari sampai tanggal ${esc(formatDate(data.coverage.hotelFrontierDate))} (frontier provider).</p>` : ""}
     <div class="plan-actions">

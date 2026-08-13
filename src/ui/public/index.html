@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Umrah Fare Watch - Cari Biaya Umrah Termurah</title>
-  <meta name="description" content="Bandingkan tiket pesawat serta hotel Makkah dan Madinah dalam satu total biaya yang transparan.">
+  <meta name="description" content="Bandingkan tiket pesawat serta hotel Makkah dan Madinah dalam satu total biaya.">
   <link rel="icon" type="image/png" href="/icon.png">
   <link rel="stylesheet" href="/styles.css">
 </head>
@@ -28,7 +28,7 @@
     <section id="top" class="hero">
       <div class="container">
         <h1>Cari Biaya Umrah Termurah</h1>
-        <p class="hero-copy">Bandingkan tiket pesawat serta hotel Makkah dan Madinah dalam satu total biaya yang transparan.</p>
+        <p class="hero-copy">Bandingkan tiket pesawat serta hotel Makkah dan Madinah dalam satu total biaya.</p>
         <div class="hero-actions">
           <a class="btn btn-primary" href="#search-form">Cari kombinasi</a>
           <button type="button" class="btn btn-ghost" id="how-calc-toggle" aria-expanded="false" aria-controls="how-calc">
@@ -42,7 +42,7 @@
     <section id="how-calc" class="how-calc" hidden>
       <div class="container">
         <h2>Cara menghitung total</h2>
-        <p>Total perjalanan = <strong>Tiket untuk semua penumpang</strong> + <strong>Hotel Makkah</strong> (semua kamar, semua malam) + <strong>Hotel Madinah</strong> (semua kamar, semua malam). Harga dinormalisasi ke Rupiah (IDR) memakai nilai tukar pada waktu observasi.</p>
+        <p>Total perjalanan = <strong>Tiket untuk semua penumpang</strong> + <strong>Hotel Makkah</strong> (semua kamar, semua malam) + <strong>Hotel Madinah</strong> (semua kamar, semua malam). Harga dikonversi ke Rupiah (IDR) memakai nilai tukar saat data diambil.</p>
         <p>Not included: transfer darat, visa, makanan di luar rate, bagasi atau fee yang tidak dinyatakan provider, asuransi, dan pengeluaran pribadi. Item yang belum lengkap biayanya tidak pernah dihitung sebagai nol.</p>
       </div>
     </section>
@@ -211,7 +211,7 @@
         <div id="results-header" class="results-header"></div>
         <div id="summary-cards" class="summary-cards"></div>
         <h2 class="results-heading">Kombinasi total termurah yang ditemukan</h2>
-        <p class="results-sub">Urutan: total lengkap terendah, dengan tie-break verifikasi, transit, durasi, dan pembatalan. Hanya plan berstatus lengkap (COMPLETE) yang masuk peringkat utama.</p>
+        <p class="results-sub">Urutan: total lengkap terendah, lalu dibandingkan dari verifikasi, transit, durasi, dan pembatalan. Hanya kombinasi berstatus lengkap (COMPLETE) yang masuk peringkat utama.</p>
         <div id="plan-list" class="plan-list"></div>
         <div id="partial-section" hidden>
           <h2 class="results-heading">Mungkin lebih murah, tetapi biaya belum lengkap</h2>
@@ -295,9 +295,9 @@
     <section id="tentang" class="section-block" aria-labelledby="tentang-title">
       <div class="container">
         <h2 id="tentang-title">Tentang Umrah Fare Watch</h2>
-        <p><strong>Termurah yang ditemukan</strong> berarti harga terendah dari provider yang aktif pada waktu observasi dengan constraint pencarian Anda, bukan jaminan termurah di seluruh internet.</p>
-        <p>Setiap hasil menampilkan provider yang tercakup, waktu observasi, status verifikasi, kelengkapan biaya, dan batasan data. Produk tidak menjual tiket, memproses pembayaran, atau menangani visa dan paspor.</p>
-        <p>Aplikasi berjalan di <strong>mode demo (mock)</strong> secara default dan otomatis beralih ke <strong>data live</strong> saat provider real aktif (misal Google Flights dan Google Hotels). Data live tetap menampilkan provider, waktu observasi, dan status verifikasi di setiap hasil.</p>
+        <p><strong>Termurah yang ditemukan</strong> berarti harga terendah dari provider yang aktif saat data diambil, dengan batasan pencarian Anda, bukan jaminan termurah di seluruh internet.</p>
+        <p>Setiap hasil menampilkan provider yang dipakai, waktu data diambil, status verifikasi, kelengkapan biaya, dan batasan data. Produk tidak menjual tiket, memproses pembayaran, atau menangani visa dan paspor.</p>
+        <p>Aplikasi berjalan di <strong>mode demo (mock)</strong> secara default dan otomatis beralih ke <strong>data live</strong> saat provider real aktif (misal Google Flights dan Google Hotels). Data live tetap menampilkan provider, waktu data diambil, dan status verifikasi di setiap hasil.</p>
         <div class="disclaimer" id="about-disclaimer"></div>
         <div class="hotel-reminder" id="hotel-reminder"></div>
       </div>

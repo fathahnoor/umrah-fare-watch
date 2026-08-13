@@ -1,6 +1,6 @@
 # 🕋 Umrah Fare Watch
 
-Web app untuk menemukan biaya perjalanan Umrah mandiri yang termurah: tiket pesawat untuk semua penumpang, hotel Makkah (semua kamar, semua malam), dan hotel Madinah (semua kamar, semua malam), dijumlahkan sebagai satu total transparan dalam IDR.
+Web app untuk menemukan biaya perjalanan Umrah mandiri yang termurah: tiket pesawat untuk semua penumpang, hotel Makkah (semua kamar, semua malam), dan hotel Madinah (semua kamar, semua malam), dijumlahkan sebagai satu total biaya dalam IDR.
 
 Aplikasi ini dibangun terbuka untuk membantu tiga kelompok sekaligus: **calon jamaah** yang ingin berangkat mandiri dengan biaya terkendali, **pengusaha travel dan KBIHU** yang ingin membandingkan harga komponen untuk menyusun paket yang kompetitif, serta **developer** yang ingin ikut membangun. Semua diskusi, saran, dan kontribusi silakan lewat repo ini (lihat bagian Berkontribusi di bawah).
 
@@ -17,7 +17,7 @@ Catatan: angka fitur dan milestone berubah cepat; detail terkini ada di `umrah-f
 
 ## Fitur
 
-- ✈️ **Cari kombinasi termurah:** tiket pesawat untuk semua penumpang, hotel Makkah, dan hotel Madinah dalam satu total transparan dalam IDR.
+- ✈️ **Cari kombinasi termurah:** tiket pesawat untuk semua penumpang, hotel Makkah, dan hotel Madinah dalam satu total biaya dalam IDR.
 - 🏨 **Status hotel per kota:** ketersediaan Makkah (MK) dan Madinah (MD) ditampilkan terpisah, sehingga Anda bisa memutuskan lanjut memproses atau menunggu.
 - 📅 **Kalender harga 365 hari:** bandingkan total lengkap untuk setiap tanggal keberangkatan dalam satu pindai.
 - 📊 **Kalender cakupan berwarna:** tiap tanggal menampilkan status flight dan hotel per kota, dengan warna kartu sesuai kondisi data.
@@ -76,7 +76,7 @@ scripts/        smoke tests, copy-ui.mjs, release-gate.ts
 
 ## Berkontribusi
 
-Repo ini terbuka untuk siapa saja yang peduli pada biaya Umrah yang transparan:
+Repo ini terbuka untuk siapa saja yang peduli pada kejujuran biaya Umrah:
 
 - **Developer:** buka issue untuk bug/ide, atau kirim pull request. Mulai dari `umrah-fare-watch-spec/10_FREEBUFF_MASTER_PROMPT.md` dan `12_HANDOFF_TO_FREEBUFF.md` untuk konteks, lalu pastikan `npm run release-gate` lulus sebelum mengajukan PR.
 - **Pengusaha travel dan KBIHU:** Anda tahu kebutuhan nyata jamaah dan seluk-beluk paket. Saran fitur, data, atau koreksi asumsi bisnis sangat berharga - buka issue dengan label diskusi atau tulis di bagian saran.
@@ -87,4 +87,4 @@ Panduan singkat: gunakan bahasa Indonesia, jelaskan masalah dan harapan dengan j
 
 ## Disclaimer
 
-Harga dan ketersediaan dapat berubah. Hasil membandingkan provider yang aktif saat observasi, bukan seluruh penawaran di internet. Verifikasi total, syarat refund, detail reservasi hotel, persyaratan visa, dan kebijakan provider sebelum booking. Mode demo memakai data sintetis.
+Harga dan ketersediaan dapat berubah. Hasil membandingkan provider yang aktif saat data diambil, bukan seluruh penawaran di internet. Periksa kembali total, syarat refund, detail reservasi hotel, persyaratan visa, dan kebijakan provider sebelum booking. Mode demo memakai data sintetis.
