@@ -1,4 +1,4 @@
-# Umrah Fare Watch
+# 🕋 Umrah Fare Watch
 
 Web app untuk menemukan biaya perjalanan Umrah mandiri yang termurah: tiket pesawat untuk semua penumpang, hotel Makkah (semua kamar, semua malam), dan hotel Madinah (semua kamar, semua malam), dijumlahkan sebagai satu total transparan dalam IDR.
 
@@ -6,14 +6,23 @@ Aplikasi ini dibangun terbuka untuk membantu tiga kelompok sekaligus: **calon ja
 
 Spesifikasi kanonis berada di `umrah-fare-watch-spec/`. Dokumen tersebut adalah kontrak produk; folder ini adalah implementasinya.
 
-## Status (per 12 Agustus 2026)
+## Status (per 13 Agustus 2026)
 
 - **Mode data:** aplikasi otomatis memilih sumber data. Tanpa kredensial ia berjalan di mode demo (mock deterministik, tanpa jaringan); begitu kredensial provider real tersedia di server, ia beralih ke data live.
 - **Provider live aktif:** **Google Flights** (tiket) dan **Google Hotels** (hotel Makkah/Madinah) melalui SerpAPI, dengan konversi FX live ke IDR. Provider lain tersedia sebagai adapter (Travelpayouts/Aviasales, Duffel) dan aktif sesuai kondisi pasar masing-masing.
-- **Fitur inti yang sudah ada:** pencarian kombinasi lengkap, perbandingan total transparan, kalender harga termurah, kalender cakupan 365 hari, pantauan harga (watchlist) dengan alert in-app untuk akun pengguna, dan alur lanjut-booking yang aman (re-verifikasi harga sebelum membuka situs provider).
+- **Fitur inti:** pencarian kombinasi, kalender harga, kalender cakupan per kota, watchlist + alert, dan alur lanjut-booking aman (detail di seksi Fitur).
 - **Kualitas:** release gate otomatis (`npm run release-gate`) yang menjalankan typecheck, lint, test, build, smoke test, dan validasi spesifikasi. Data provider real hanya ditampilkan setelah smoke test server-side untuk rute Indonesia lulus, demi menjaga kejujuran data.
 
 Catatan: angka fitur dan milestone berubah cepat; detail terkini ada di `umrah-fare-watch-spec/progress.md`, bukan di README ini.
+
+## Fitur
+
+- ✈️ **Cari kombinasi termurah:** tiket pesawat untuk semua penumpang, hotel Makkah, dan hotel Madinah dalam satu total transparan dalam IDR.
+- 🏨 **Status hotel per kota:** ketersediaan Makkah (MK) dan Madinah (MD) ditampilkan terpisah, sehingga Anda bisa memutuskan lanjut memproses atau menunggu.
+- 📅 **Kalender harga 365 hari:** bandingkan total lengkap untuk setiap tanggal keberangkatan dalam satu pindai.
+- 📊 **Kalender cakupan berwarna:** tiap tanggal menampilkan status flight dan hotel per kota, dengan warna kartu sesuai kondisi data.
+- 🔔 **Pantauan harga:** simpan kombinasi perjalanan dan terima alert in-app saat total turun atau mencapai budget Anda.
+- 🔒 **Lanjut-booking aman:** harga diverifikasi ulang sebelum membuka situs provider.
 
 ## Quick start
 
