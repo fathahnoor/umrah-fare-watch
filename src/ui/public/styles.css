@@ -8,7 +8,9 @@
   --sand-50: #fbf7ef;
   --sand-100: #f4ead6;
   --ink-900: #1c1917;
+  --ink-800: #292524;
   --ink-700: #44403c;
+  --ink-600: #57534e;
   --ink-500: #78716c;
   --white: #ffffff;
   --danger-700: #b91c1c;
@@ -74,13 +76,22 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   z-index: 20;
   box-shadow: 0 2px 10px rgba(6, 78, 59, 0.35);
 }
-.header-inner { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 10px; padding-bottom: 10px; }
+.header-inner { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; padding-top: 10px; padding-bottom: 10px; }
 .brand { display: inline-flex; align-items: center; gap: 8px; color: var(--white); font-weight: 700; text-decoration: none; font-size: 1.05rem; }
 .brand-mark { font-size: 1.25rem; display: inline-flex; }
 .brand-mark img { display: block; border-radius: 6px; }
 .main-nav { display: flex; gap: 14px; flex-wrap: wrap; }
 .main-nav a { color: var(--emerald-100); text-decoration: none; font-weight: 600; font-size: 0.92rem; padding: 6px 2px; }
 .main-nav a[aria-current="page"] { color: var(--white); border-bottom: 2px solid var(--white); }
+
+/* Layar sempit (360-400px): nav dimiliki baris sendiri agar tidak overflow. */
+@media (max-width: 480px) {
+  .header-inner { justify-content: center; }
+  .brand { font-size: 1rem; }
+  .main-nav { justify-content: center; gap: 4px 10px; }
+  .main-nav a { font-size: 0.88rem; padding: 5px 2px; }
+  .btn { padding: 10px 16px; }
+}
 
 /* Hero */
 .hero { background: radial-gradient(1200px 400px at 20% 0%, rgba(5, 150, 105, 0.16), transparent), var(--sand-100); border-bottom: 1px solid var(--gray-200); padding: 40px 0 32px; }
@@ -125,11 +136,23 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   margin: 0 0 16px;
   box-shadow: var(--shadow);
 }
-.form-group legend { font-weight: 700; color: var(--emerald-800); padding: 0 6px; font-size: 1.02rem; }
+.form-group legend, .form-legend { font-weight: 700; color: var(--emerald-800); padding: 0 6px; font-size: 1.02rem; }
+.form-legend { margin: 0 0 10px; }
 .form-row { display: grid; grid-template-columns: 1fr; gap: 14px; margin-bottom: 12px; }
 .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .field label { font-weight: 600; font-size: 0.93rem; color: var(--ink-700); }
-.field input[type="date"], .field input[type="number"], .field select {
+.field input, .field select {
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--gray-200);
+  border-radius: 10px;
+  font-size: 1rem;
+  background: var(--white);
+  color: var(--ink-900);
+  width: 100%;
+}
+/* Ukuran font >= 16px di semua input mencegah iOS Safari zoom otomatis. */
+.watch-budget-form input, .wl-budget-form input {
   min-height: 44px;
   padding: 8px 10px;
   border: 1px solid var(--gray-200);
@@ -421,12 +444,30 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   .checkbox-grid.two-col { grid-template-columns: repeat(2, 1fr); }
   .summary-cards { grid-template-columns: repeat(2, 1fr); }
   .plan-detail-grid { grid-template-columns: repeat(2, 1fr); }
+  .calendar-grid { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); }
+  .coverage-calendar { grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); }
 }
 @media (min-width: 900px) {
   .form-row { grid-template-columns: repeat(3, 1fr); }
   .summary-cards { grid-template-columns: repeat(4, 1fr); }
   .plan-detail-grid { grid-template-columns: repeat(3, 1fr); }
   .hero { padding: 64px 0 48px; }
+  /* Daftar bandara/pola memanfaatkan lebar desktop: 3 kolom. */
+  .checkbox-grid { grid-template-columns: repeat(3, 1fr); }
+  .checkbox-grid.two-col { grid-template-columns: repeat(2, 1fr); }
+}
+/* Desktop lebar: kartu hasil pakai 2 kolom agar layar terpakai optimal. */
+@media (min-width: 1024px) {
+  .plan-list { grid-template-columns: repeat(2, 1fr); align-items: start; }
+  .calendar-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+  .coverage-calendar { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
+}
+
+/* Hover elevasi hanya untuk perangkat pointer mouse/trackpad. */
+@media (hover: hover) and (pointer: fine) {
+  .plan-card:hover { border-color: var(--emerald-600); box-shadow: 0 12px 34px rgba(28, 25, 23, 0.13); }
+  .watchlist-card:hover { border-color: var(--emerald-600); }
+  .summary-card:hover { border-color: var(--emerald-600); }
 }
 
 @media (prefers-reduced-motion: reduce) {
