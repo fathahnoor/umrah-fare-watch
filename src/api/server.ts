@@ -32,6 +32,40 @@ export interface AppDeps {
   handoffService?: HandoffService;
 }
 
+/** Security headers for every response. CSP keeps scripts same-origin only;
+ * inline event handlers are therefore not allowed anywhere in the UI. */
+function securityHeaders(_req: Request, res: Response, next: NextFunction): void {
+  res.setHeader(
+    "Content-Security-Policy",
+    [
+      "default-src 'self'",
+      "script-src 'self'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data:",
+      "connect-src 'self'",
+      "object-src 'none'",
+      "base-uri 'none'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+    ].join("; "),
+  );
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  next();
+}
+
+/** Accept a caller-supplied correlation id only when it is short and plain
+ * ASCII identifier-shaped, so logs and headers stay clean. */
+function sanitizeCorrelationId(raw: string | undefined): string {
+  if (raw && /^[A-Za-z0-9_-]{1,64}$/.test(raw)) {
+    return raw;
+  }
+  return randomUUID();
+}
+
 export function createApp(deps: AppDeps): express.Express {
   const app = express();
   const coverageRepo = deps.coverageRepo;
@@ -46,11 +80,15 @@ export function createApp(deps: AppDeps): express.Express {
   const handoffService = deps.handoffService ?? new HandoffService(deps.registry, deps.store, deps.config);
 
   app.disable("x-powered-by");
+  app.use(securityHeaders);
   app.use(express.json({ limit: "256kb" }));
 
   // Correlation ID + structured request log with redaction (no bodies, no secrets).
   app.use((req: Request, res: Response, next: NextFunction) => {
-    const correlationId = (req.headers["x-correlation-id"] as string | undefined) ?? randomUUID();
+    const rawHeader = req.headers["x-correlation-id"];
+    const correlationId = sanitizeCorrelationId(
+      typeof rawHeader === "string" ? rawHeader : Array.isArray(rawHeader) ? rawHeader[0] : undefined,
+    );
     res.locals.correlationId = correlationId;
     res.setHeader("x-correlation-id", correlationId);
     const started = Date.now();
@@ -191,9 +229,23 @@ function main(): void {
   }, Math.max(watchlistIntervalMs, 10_000));
   watchlistWorker.unref();
 
+  // Session housekeeping: drop expired sessions once an hour so the table
+  // does not grow without bound.
+  const sessionSweeper = setInterval(() => {
+    try {
+      authRepo.deleteExpiredSessions(new Date());
+    } catch (err: unknown) {
+      process.stderr.write(
+        `${JSON.stringify({ ts: new Date().toISOString(), level: "error", message: "session sweep failed", detail: err instanceof Error ? err.message : String(err) })}\n`,
+      );
+    }
+  }, 3_600_000);
+  sessionSweeper.unref();
+
   const shutdown = (): void => {
     clearInterval(coverageWorker);
     clearInterval(watchlistWorker);
+    clearInterval(sessionSweeper);
     server.close(() => {
       store.close();
       process.exit(0);

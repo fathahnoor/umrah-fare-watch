@@ -1,5 +1,7 @@
 // User and session persistence. Passwords are stored only as salted scrypt
-// hashes; session tokens are random 32-byte values keyed to a user.
+// hashes; sessions are keyed by the SHA-256 of the opaque token so a database
+// leak does not yield usable login tokens.
+import { createHash } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 
 export interface UserRecord {
@@ -17,6 +19,13 @@ export interface AuthRepo {
   createSession(session: { token: string; userId: string; createdAt: string; expiresAt: string }): void;
   findUserIdBySession(token: string): { userId: string; expiresAt: string } | null;
   deleteSession(token: string): void;
+  deleteExpiredSessions(now: Date): number;
+}
+
+/** Sessions are stored keyed by hash(token); the raw token only exists in the
+ * client's possession and in transit. */
+function sessionKey(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
 }
 
 export class SqliteAuthRepo implements AuthRepo {
@@ -69,18 +78,25 @@ export class SqliteAuthRepo implements AuthRepo {
         `INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)
          ON CONFLICT (token) DO NOTHING`,
       )
-      .run(session.token, session.userId, session.createdAt, session.expiresAt);
+      .run(sessionKey(session.token), session.userId, session.createdAt, session.expiresAt);
   }
 
   findUserIdBySession(token: string): { userId: string; expiresAt: string } | null {
     const row = this.db
       .prepare("SELECT user_id, expires_at FROM sessions WHERE token = ?")
-      .get(token) as { user_id: string; expires_at: string } | undefined;
+      .get(sessionKey(token)) as { user_id: string; expires_at: string } | undefined;
     return row ? { userId: row.user_id, expiresAt: row.expires_at } : null;
   }
 
   deleteSession(token: string): void {
-    this.db.prepare("DELETE FROM sessions WHERE token = ?").run(token);
+    this.db.prepare("DELETE FROM sessions WHERE token = ?").run(sessionKey(token));
+  }
+
+  deleteExpiredSessions(now: Date): number {
+    const result = this.db
+      .prepare("DELETE FROM sessions WHERE expires_at <= ?")
+      .run(now.toISOString());
+    return Number(result.changes);
   }
 }
 

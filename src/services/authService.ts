@@ -6,6 +6,10 @@ import type { ValidationIssue } from "../domain/types.js";
 import type { AuthRepo, UserRecord } from "../store/auth.js";
 
 const SCRYPT_KEYLEN = 64;
+// Input caps: scrypt is CPU/memory hungry, so bound credential lengths before
+// hashing to keep a hostile request from hogging the event loop.
+const MAX_EMAIL_LENGTH = 254;
+const MAX_PASSWORD_LENGTH = 128;
 
 export type AuthOutcome<T> =
   | { ok: true; data: T }
@@ -29,8 +33,14 @@ export class AuthService {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       issues.push({ field: "email", code: "VALIDATION_ERROR", message: "Email tidak valid" });
     }
+    if (email.length > MAX_EMAIL_LENGTH) {
+      issues.push({ field: "email", code: "VALIDATION_ERROR", message: "Email terlalu panjang" });
+    }
     if (password.length < 8) {
       issues.push({ field: "password", code: "VALIDATION_ERROR", message: "Kata sandi minimal 8 karakter" });
+    }
+    if (password.length > MAX_PASSWORD_LENGTH) {
+      issues.push({ field: "password", code: "VALIDATION_ERROR", message: "Kata sandi maksimal 128 karakter" });
     }
     if (issues.length > 0) {
       return { ok: false, issues };

@@ -3,6 +3,7 @@ import { Router } from "express";
 import type { Request, Response } from "express";
 import type { AppConfig } from "../config.js";
 import { addDays, todayLocalDate } from "../domain/dates.js";
+import { createRateLimiter } from "./rateLimit.js";
 import type { AuthService } from "../services/authService.js";
 import type { CoverageService } from "../services/coverageService.js";
 import type { HandoffService } from "../services/handoffService.js";
@@ -58,6 +59,12 @@ function requireUser(deps: RouteDeps, req: Request, res: Response): string | nul
 export function createRoutes(deps: RouteDeps): Router {
   const router = Router();
 
+  // Brute-force protection: credential attempts share one per-IP bucket.
+  const authLimiter = createRateLimiter({ windowMs: 10 * 60_000, max: 20, scope: "auth" });
+  // Provider-backed endpoints: each request can fan out to several provider
+  // calls, so keep a separate, tighter bucket than the general API.
+  const searchLimiter = createRateLimiter({ windowMs: 5 * 60_000, max: 60, scope: "search" });
+
   router.get("/health", (_req: Request, res: Response) => {
     res.json({
       ok: true,
@@ -71,7 +78,7 @@ export function createRoutes(deps: RouteDeps): Router {
     });
   });
 
-  router.post("/search/trip", async (req: Request, res: Response) => {
+  router.post("/search/trip", searchLimiter, async (req: Request, res: Response) => {
     const outcome = await deps.searchService.searchTrip(req.body, deps.now());
     if (!outcome.ok) {
       res.status(400).json({
@@ -85,7 +92,7 @@ export function createRoutes(deps: RouteDeps): Router {
     res.json(outcome.response);
   });
 
-  router.post("/search/calendar", async (req: Request, res: Response) => {
+  router.post("/search/calendar", searchLimiter, async (req: Request, res: Response) => {
     const outcome = await deps.searchService.searchCalendar(req.body, deps.now());
     if (!outcome.ok) {
       res.status(400).json({
@@ -99,7 +106,7 @@ export function createRoutes(deps: RouteDeps): Router {
     res.json(outcome.response);
   });
 
-  router.post("/auth/register", (req: Request, res: Response) => {
+  router.post("/auth/register", authLimiter, (req: Request, res: Response) => {
     const outcome = deps.authService.register(req.body?.email, req.body?.password, deps.now());
     if (!outcome.ok) {
       const conflict = outcome.issues.some((i) => i.code === "CONFLICT");
@@ -114,7 +121,7 @@ export function createRoutes(deps: RouteDeps): Router {
     res.status(201).json(outcome.data);
   });
 
-  router.post("/auth/login", (req: Request, res: Response) => {
+  router.post("/auth/login", authLimiter, (req: Request, res: Response) => {
     const outcome = deps.authService.login(req.body?.email, req.body?.password, deps.now());
     if (!outcome.ok) {
       res.status(401).json({
@@ -233,7 +240,7 @@ export function createRoutes(deps: RouteDeps): Router {
     res.json(coverage);
   });
 
-  router.post("/coverage/scan", async (_req: Request, res: Response) => {
+  router.post("/coverage/scan", searchLimiter, async (_req: Request, res: Response) => {
     const result = await deps.coverageService.runDueScans(deps.now());
     res.json(result);
   });
