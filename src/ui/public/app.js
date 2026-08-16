@@ -54,9 +54,33 @@ function esc(value) {
   })[ch]);
 }
 
+/* Hanya terima tautan http/https dari data provider. Mencegah skema seperti
+   javascript: atau data: bocor dari data provider/penyimpanan lokal ke halaman. */
+function safeBookingUrl(raw) {
+  if (!raw || typeof raw !== "string") return null;
+  try {
+    const url = new URL(raw);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : null;
+  } catch (_e) {
+    return null;
+  }
+}
+
 function formatIdr(minor) {
   if (minor == null) return "-";
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(minor);
+}
+
+/* Format ringkas untuk kartu kalender yang sempit: "Rp 25,1 jt" alih-alih
+   "Rp 25.100.000". Nilai penuh tetap ada di aria-label tombol tanggal. */
+function formatIdrShort(minor) {
+  if (minor == null) return "-";
+  const n = Number(minor);
+  if (!Number.isFinite(n)) return "-";
+  if (n >= 1e9) return `Rp ${(n / 1e9).toLocaleString("id-ID", { maximumFractionDigits: 2 })} M`;
+  if (n >= 1e6) return `Rp ${(n / 1e6).toLocaleString("id-ID", { maximumFractionDigits: 1 })} jt`;
+  if (n >= 1e3) return `Rp ${Math.round(n / 1e3).toLocaleString("id-ID")} rb`;
+  return `Rp ${n.toLocaleString("id-ID")}`;
 }
 
 function formatDate(localDate) {
@@ -528,13 +552,14 @@ function planCard(plan, partial) {
   };
 
   const actions = [];
-  if (f.bookingUrl) {
+  const bookingUrl = safeBookingUrl(f.bookingUrl);
+  if (bookingUrl) {
     const isMock = (f.providerId || "").startsWith("mock");
     const confirmMsg = isMock
       ? "Tautan ini adalah demo sintetis dari provider mock, bukan booking asli. Lanjut?"
       : "Buka tautan booking di provider untuk memeriksa harga dan ketersediaan terkini? (Produk tidak memproses pembayaran.)";
     const btnLabel = isMock ? "Buka sumber booking (demo)" : "Buka sumber booking";
-    actions.push(`<a class="btn btn-ghost" href="${esc(f.bookingUrl)}" target="_blank" rel="noopener" onclick="return confirm('${confirmMsg}')">${btnLabel}</a>`);
+    actions.push(`<a class="btn btn-ghost" href="${esc(bookingUrl)}" target="_blank" rel="noopener noreferrer" data-booking-confirm="${esc(confirmMsg)}">${btnLabel}</a>`);
   }
   if (!partial && total != null) {
     actions.push(`<button type="button" class="btn btn-ghost" data-watch-plan="${esc(plan.id)}">Pantau paket ini</button>`);
@@ -711,10 +736,12 @@ function renderCalendarGrid(days) {
     }
     const dayName = DAY_NAMES[dt.getUTCDay()];
     const isCheapest = day.departureDate === cheapestDate;
-    const total = day.hasComplete && day.cheapestTotalIdrMinor != null ? formatIdr(day.cheapestTotalIdrMinor) : "Belum lengkap";
+    const hasTotal = day.hasComplete && day.cheapestTotalIdrMinor != null;
+    const totalFull = hasTotal ? formatIdr(day.cheapestTotalIdrMinor) : "Belum lengkap";
+    const total = hasTotal ? formatIdrShort(day.cheapestTotalIdrMinor) : "Belum lengkap";
     const note = isCheapest ? "Termurah" : dayName;
     html += `
-      <button type="button" class="cal-day${isCheapest ? " cheapest" : ""}${day.hasComplete ? "" : " empty"}" data-date="${esc(day.departureDate)}" aria-label="${esc(formatDate(day.departureDate))}, ${total}">
+      <button type="button" class="cal-day${isCheapest ? " cheapest" : ""}${day.hasComplete ? "" : " empty"}" data-date="${esc(day.departureDate)}" aria-label="${esc(formatDate(day.departureDate))}, ${esc(totalFull)}">
         <span class="cal-day-date">${esc(formatDayShort(day.departureDate))}</span>
         <span class="cal-day-total">${esc(total)}</span>
         <span class="cal-day-note">${esc(note)}</span>
@@ -948,6 +975,14 @@ function watchlistMeta(w) {
 
 function watchPlan(planId) {
   if (!lastResults || !lastResults.constraints) return;
+  if (!sessionToken()) {
+    const status = $("#watchlist-status");
+    status.textContent = "Masuk atau daftar dulu untuk menyimpan pantauan (gratis, hanya email dan kata sandi).";
+    document.getElementById("pantauan")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const emailField = $("#authEmail");
+    if (emailField) setTimeout(() => emailField.focus(), 350);
+    return;
+  }
   const plan = lastResults.results.find((p) => p.id === planId);
   const label = plan
     ? `Umroh ${formatDate(plan.dates.makkahCheckIn)} - ${formatDate(plan.dates.madinahCheckOut)}`
@@ -1111,6 +1146,8 @@ async function editWatchlistBudget(id) {
 
 async function checkWatchlist(id) {
   const status = $("#watchlist-status");
+  const btn = document.querySelector(`[data-wl-check="${CSS.escape(id)}"]`);
+  if (btn) btn.disabled = true;
   status.textContent = "Memeriksa ulang harga, mohon tunggu...";
   try {
     const res = await fetch(`/api/watchlist/${encodeURIComponent(id)}/check`, {
@@ -1130,6 +1167,8 @@ async function checkWatchlist(id) {
         : `Harga dicek ulang: ${formatIdr(body.currentTotalIdrMinor)} (belum ada penurunan baru).`;
   } catch (_err) {
     status.textContent = "Gagal memeriksa harga, coba lagi.";
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -1164,7 +1203,7 @@ function renderAlerts(alerts) {
       : "";
     return `
       <article class="alert-card">
-        <p class="alert-line"><strong>Harga turun:</strong> ${formatIdr(a.previousTotalIdrMinor)} ke ${formatIdr(a.currentTotalIdrMinor)} (turun ${esc(a.dropPercent.toFixed(1))}%).</p>
+        <p class="alert-line"><strong>Harga turun:</strong> ${formatIdr(a.previousTotalIdrMinor)} ke ${formatIdr(a.currentTotalIdrMinor)} (turun ${esc(Number(a.dropPercent || 0).toFixed(1))}%).</p>
         ${dates ? `<p class="plan-meta">${esc(dates)} &middot; ${esc(formatDateTime(a.createdAt))}</p>` : `<p class="plan-meta">${esc(formatDateTime(a.createdAt))}</p>`}
       </article>`;
   }).join("");
@@ -1226,6 +1265,13 @@ function init() {
     } else if (event.target.closest("#btn-calendar")) {
       runCalendar();
       document.getElementById("kalender")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    const bookingLink = event.target.closest("[data-booking-confirm]");
+    if (bookingLink) {
+      if (!window.confirm(bookingLink.getAttribute("data-booking-confirm") || "Buka tautan booking di provider?")) {
+        event.preventDefault();
+      }
+      return;
     }
     const day = event.target.closest(".cal-day[data-date]");
     if (day) {
