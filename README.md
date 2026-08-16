@@ -6,12 +6,13 @@ Aplikasi ini dibangun terbuka untuk membantu tiga kelompok sekaligus: **calon ja
 
 Spesifikasi kanonis berada di `umrah-fare-watch-spec/`. Dokumen tersebut adalah kontrak produk; folder ini adalah implementasinya.
 
-## Status (per 13 Agustus 2026)
+## Status (per 16 Agustus 2026)
 
 - **Mode data:** aplikasi otomatis memilih sumber data. Tanpa kredensial ia berjalan di mode demo (mock deterministik, tanpa jaringan); begitu kredensial provider real tersedia di server, ia beralih ke data live.
 - **Provider live aktif:** **Google Flights** (tiket) dan **Google Hotels** (hotel Makkah/Madinah) melalui SerpAPI, dengan konversi FX live ke IDR. Provider lain tersedia sebagai adapter (Travelpayouts/Aviasales, Duffel) dan aktif sesuai kondisi pasar masing-masing.
 - **Fitur inti:** pencarian kombinasi, kalender harga, kalender cakupan per kota, watchlist + alert, dan alur lanjut-booking aman (detail di seksi Fitur).
 - **Kualitas:** release gate otomatis (`npm run release-gate`) yang menjalankan typecheck, lint, test, build, smoke test, dan validasi spesifikasi. Data provider real hanya ditampilkan setelah smoke test server-side untuk rute Indonesia lulus, demi menjaga keterbukaan data.
+- **Keamanan dan responsif (16 Agustus 2026):** penguatan API (rate limit, security headers + CSP, sesi ter-hash, lihat seksi Keamanan) dan tata letak yang nyaman dari layar hape 360px sampai desktop lebar: header ringkas tanpa geser horizontal, kartu hasil 2 kolom di desktop, format harga ringkas di kalender, dan kontrol sentuh minimal 44px.
 
 Catatan: angka fitur dan milestone berubah cepat; detail terkini ada di `umrah-fare-watch-spec/progress.md`, bukan di README ini.
 
@@ -73,6 +74,19 @@ scripts/        smoke tests, copy-ui.mjs, release-gate.ts
 - **Tanggal:** local date ISO; datetime Saudi diturunkan dari UTC instant + offset eksplisit.
 - **Horizon:** user 365 hari, technical flight 370, frontier hotel 330.
 - **Persistensi:** node:sqlite bawaan Node (>= 22.5), append-only observasi, dedup key unik, constraint non-negatif dan checkout >= check-in.
+
+## Keamanan
+
+Kontrol yang aktif di API dan UI (diaudit ulang 16 Agustus 2026):
+
+- **Kata sandi:** salted scrypt (64 byte) per pengguna, verifikasi memakai `timingSafeEqual`. Panjang email dibatasi 254 karakter dan kata sandi 8 sampai 128 karakter agar hash tidak bisa dipakai untuk membebani server.
+- **Sesi:** token acak 32 byte yang dikirim lewat header `X-Session-Token` (bukan cookie, jadi bebas CSRF). Di database hanya disimpan SHA-256 dari token, sehingga kebocoran database tidak langsung membuka akun. Sesi kedaluwarsa dibersihkan otomatis tiap jam.
+- **Rate limiting:** endpoint auth dibatasi 20 permintaan per 10 menit per IP; endpoint pencarian dan pemindaian (search/trip, search/calendar, coverage/scan) dibatasi 60 per 5 menit per IP. Melebihi itu menghasilkan 429 beserta header `Retry-After`.
+- **Security headers:** setiap respons memuat Content-Security-Policy (script hanya same-origin, tanpa inline event handler), `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, dan `Permissions-Policy`.
+- **Correlation ID:** header `X-Correlation-ID` dari klien hanya diterima bila berupa identifier pendek yang aman; selain itu diganti UUID baru agar log dan header tetap bersih.
+- **Tautan booking:** frontend hanya merender tautan provider berprotokol http/https (menolak `javascript:` dan `data:`); handoff ke provider nyata juga melewati allowlist host di server sebelum tautan dibuka.
+- **Validasi input:** seluruh input pencarian dan pantauan divalidasi ulang di server dengan zod (batas penumpang, kamar, rentang tanggal, radius, dan horizon), apa pun yang dikirim klien.
+- **Rahasia:** token provider hanya lewat environment variable; `.env`, database, dan log diabaikan git.
 
 ## Berkontribusi
 
