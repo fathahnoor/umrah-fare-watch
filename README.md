@@ -6,13 +6,14 @@ Aplikasi ini dibangun terbuka untuk membantu tiga kelompok sekaligus: **calon ja
 
 Spesifikasi kanonis berada di `umrah-fare-watch-spec/`. Dokumen tersebut adalah kontrak produk; folder ini adalah implementasinya.
 
-## Status (per 16 Agustus 2026)
+## Status (per 22 Agustus 2026)
 
 - **Mode data:** aplikasi otomatis memilih sumber data. Tanpa kredensial ia berjalan di mode demo (mock deterministik, tanpa jaringan); begitu kredensial provider real tersedia di server, ia beralih ke data live.
 - **Provider live aktif:** **Google Flights** (tiket) dan **Google Hotels** (hotel Makkah/Madinah) melalui SerpAPI, dengan konversi FX live ke IDR. Provider lain tersedia sebagai adapter (Travelpayouts/Aviasales, Duffel) dan aktif sesuai kondisi pasar masing-masing.
 - **Fitur inti:** pencarian kombinasi, kalender harga, kalender cakupan per kota, watchlist + alert, dan alur lanjut-booking aman (detail di seksi Fitur).
 - **Kualitas:** release gate otomatis (`npm run release-gate`) yang menjalankan typecheck, lint, test, build, smoke test, dan validasi spesifikasi. Data provider real hanya ditampilkan setelah smoke test server-side untuk rute Indonesia lulus, demi menjaga keterbukaan data.
 - **Kuota provider:** kuota bulanan yang habis dibedakan dari pembatasan permintaan per jam. API dan UI menampilkan respons khusus, menghentikan panggilan provider lanjutan, dan tidak mengganti data live dengan data mock.
+- **Deployment publik:** VPS produksi tersedia melalui `https://103.226.139.211`. Nginx mengalihkan HTTP ke HTTPS dan memakai sertifikat IP short-lived Let's Encrypt dengan renewal otomatis.
 - **Keamanan dan responsif (16 Agustus 2026):** penguatan API (rate limit, security headers + CSP, sesi ter-hash, lihat seksi Keamanan) dan tata letak yang nyaman dari layar hape 360px sampai desktop lebar: header ringkas tanpa geser horizontal, kartu hasil 2 kolom di desktop, format harga ringkas di kalender, dan kontrol sentuh minimal 44px.
 
 Catatan: angka fitur dan milestone berubah cepat; detail terkini ada di `umrah-fare-watch-spec/progress.md`, bukan di README ini.
@@ -48,6 +49,7 @@ GitHub Pages hanya menyajikan file statis; aplikasi ini membutuhkan backend Node
 
 - **PaaS (Railway, Render, Fly.io):** push repo GitHub, set `NODE_VERSION` >= 22.5, run `npm install && npm run build && npm start`. Catatan: disk SQLite di PaaS bersifat ephemeral saat redeploy; gunakan volume persistent atau DB eksternal jika data pantauan harus bertahan.
 - **VPS kecil (DigitalOcean, Hetzner, dan sejenisnya):** kontrol penuh; SQLite permanen di disk; jalankan dengan PM2 atau systemd. Direkomendasikan saat provider real aktif karena API key wajib tersimpan server-side.
+- **HTTPS berbasis IP:** `deploy/nginx-umrah-fare-watch.conf` memuat terminasi TLS serta jalur HTTP-01. Sertifikat IP Let's Encrypt membutuhkan Certbot 5.4 atau lebih baru, profil `shortlived`, timer renewal aktif, dan hook `deploy/certbot-reload-nginx.sh` agar Nginx memuat sertifikat yang diperbarui.
 - **Envvars penting:** `PORT`, `DB_PATH`, `MOCK_MODE`, `SESSION_TTL_DAYS`, `WATCHLIST_WORKER_INTERVAL_MS`, `COVERAGE_WORKER_INTERVAL_MS`, dan kredensial provider. Lihat `.env.example`.
 - Kredensial provider real hanya dimuat dari secret manager server-side, tidak pernah dari frontend atau file env yang di-commit.
 
@@ -83,7 +85,7 @@ Kontrol yang aktif di API dan UI (diaudit ulang 16 Agustus 2026):
 - **Kata sandi:** salted scrypt (64 byte) per pengguna, verifikasi memakai `timingSafeEqual`. Panjang email dibatasi 254 karakter dan kata sandi 8 sampai 128 karakter agar hash tidak bisa dipakai untuk membebani server.
 - **Sesi:** token acak 32 byte yang dikirim lewat header `X-Session-Token` (bukan cookie, jadi bebas CSRF). Di database hanya disimpan SHA-256 dari token, sehingga kebocoran database tidak langsung membuka akun. Sesi kedaluwarsa dibersihkan otomatis tiap jam.
 - **Rate limiting:** endpoint auth dibatasi 20 permintaan per 10 menit per IP; endpoint pencarian dan pemindaian (search/trip, search/calendar, coverage/scan) dibatasi 60 per 5 menit per IP. Melebihi itu menghasilkan 429 beserta header `Retry-After`.
-- **Security headers:** setiap respons memuat Content-Security-Policy. Script aplikasi tetap same-origin tanpa inline event handler, dengan allowlist terbatas ke subdomain `*.histats.com` yang dipakai loader dan renderer counter Histats. HTTP dan HTTPS diizinkan karena deployment berbasis IP masih memakai HTTP dan loader Histats mengikuti protokol halaman. Respons juga memuat `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, dan `Permissions-Policy`.
+- **Security headers:** setiap respons memuat Content-Security-Policy. Script aplikasi tetap same-origin tanpa inline event handler, dengan allowlist terbatas ke subdomain `*.histats.com` yang dipakai loader dan renderer counter Histats. HTTP dipertahankan pada allowlist untuk local development, sedangkan produksi selalu dialihkan ke HTTPS. Respons juga memuat `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, dan `Permissions-Policy`.
 - **Correlation ID:** header `X-Correlation-ID` dari klien hanya diterima bila berupa identifier pendek yang aman; selain itu diganti UUID baru agar log dan header tetap bersih.
 - **Tautan booking:** frontend hanya merender tautan provider berprotokol http/https (menolak `javascript:` dan `data:`); handoff ke provider nyata juga melewati allowlist host di server sebelum tautan dibuka.
 - **Validasi input:** seluruh input pencarian dan pantauan divalidasi ulang di server dengan zod (batas penumpang, kamar, rentang tanggal, radius, dan horizon), apa pun yang dikirim klien.
