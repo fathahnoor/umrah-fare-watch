@@ -154,6 +154,8 @@ describe("API integration (mock mode, BUILD-03)", () => {
       const html = await res.text();
       expect(html).toContain("Cari Biaya Umrah Termurah");
       expect(html).toContain("Cari kombinasi");
+      expect(html).toContain('id="histats_counter"');
+      expect(html).toContain("https://sstatic1.histats.com/0.gif?5046661&101");
     });
   });
 });

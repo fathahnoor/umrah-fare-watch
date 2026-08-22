@@ -251,6 +251,10 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .site-footer { background: var(--ink-900); color: var(--sand-100); padding: 28px 0; }
 .site-footer .disclaimer { color: var(--sand-100); border-color: rgba(255, 255, 255, 0.2); }
 .footer-note { font-size: 0.85rem; color: rgba(255, 255, 255, 0.7); }
+.visitor-counter { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; min-height: 33px; }
+#histats_counter { display: inline-flex; align-items: center; min-height: 33px; }
+#histats_counter img, .site-footer noscript img { display: block; max-width: 100%; height: auto; }
+.analytics-note { margin-top: 6px; }
 
 .error-banner { background: var(--danger-100); border: 1px solid var(--danger-700); color: var(--danger-700); border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; font-size: 0.95rem; }
 

@@ -1341,6 +1341,23 @@ function init() {
   refreshWatchlist();
   loadCoverageCalendar();
   updateProviderHero();
+  initHistatsCounter();
+}
+
+function initHistatsCounter() {
+  if (document.querySelector("script[data-histats-counter]")) return;
+
+  window._Hasync = window._Hasync || [];
+  window._Hasync.push(["Histats.start", "1,5046661,4,119,112,33,00011001"]);
+  window._Hasync.push(["Histats.fasi", "1"]);
+  window._Hasync.push(["Histats.track_hits", ""]);
+
+  const script = document.createElement("script");
+  script.type = "text/javascript";
+  script.async = true;
+  script.src = "https://s10.histats.com/js15_as.js";
+  script.dataset.histatsCounter = "true";
+  (document.head || document.body).appendChild(script);
 }
 
 /* ---------- auth actions ---------- */

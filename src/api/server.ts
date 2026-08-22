@@ -39,10 +39,10 @@ function securityHeaders(_req: Request, res: Response, next: NextFunction): void
     "Content-Security-Policy",
     [
       "default-src 'self'",
-      "script-src 'self'",
+      "script-src 'self' https://s10.histats.com",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data:",
-      "connect-src 'self'",
+      "img-src 'self' data: https://*.histats.com",
+      "connect-src 'self' https://*.histats.com",
       "object-src 'none'",
       "base-uri 'none'",
       "form-action 'self'",
@@ -80,6 +80,10 @@ export function createApp(deps: AppDeps): express.Express {
   const handoffService = deps.handoffService ?? new HandoffService(deps.registry, deps.store, deps.config);
 
   app.disable("x-powered-by");
+  // Production runs behind a reverse proxy on the same host. Trust forwarded
+  // client addresses only when the immediate peer is loopback, so IP-based
+  // rate limits remain per client without trusting arbitrary public headers.
+  app.set("trust proxy", "loopback");
   app.use(securityHeaders);
   app.use(express.json({ limit: "256kb" }));
 

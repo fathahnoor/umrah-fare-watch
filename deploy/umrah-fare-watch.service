@@ -1,0 +1,33 @@
+[Unit]
+Description=Umrah Fare Watch web application
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=fnp-admin
+Group=fnp-admin
+WorkingDirectory=/opt/umrah-fare-watch
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=DB_PATH=/var/lib/umrah-fare-watch/umrah-fare-watch.db
+Environment=PUBLIC_DIR=/opt/umrah-fare-watch/dist/ui/public
+EnvironmentFile=/etc/umrah-fare-watch.env
+ExecStart=/usr/bin/node /opt/umrah-fare-watch/dist/api/server.js
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/umrah-fare-watch
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target
