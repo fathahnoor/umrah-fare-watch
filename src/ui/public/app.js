@@ -1355,7 +1355,7 @@ function initHistatsCounter() {
   const script = document.createElement("script");
   script.type = "text/javascript";
   script.async = true;
-  script.src = "https://s10.histats.com/js15_as.js";
+  script.src = "//s10.histats.com/js15_as.js";
   script.dataset.histatsCounter = "true";
   (document.head || document.body).appendChild(script);
 }

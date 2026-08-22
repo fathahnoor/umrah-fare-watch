@@ -39,10 +39,10 @@ function securityHeaders(_req: Request, res: Response, next: NextFunction): void
     "Content-Security-Policy",
     [
       "default-src 'self'",
-      "script-src 'self' https://*.histats.com",
+      "script-src 'self' http://*.histats.com https://*.histats.com",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: https://*.histats.com",
-      "connect-src 'self' https://*.histats.com",
+      "img-src 'self' data: http://*.histats.com https://*.histats.com",
+      "connect-src 'self' http://*.histats.com https://*.histats.com",
       "object-src 'none'",
       "base-uri 'none'",
       "form-action 'self'",
