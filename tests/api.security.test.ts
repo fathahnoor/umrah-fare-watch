@@ -23,7 +23,7 @@ describe("API security hardening", () => {
       const res = await fetch(`${baseUrl}/api/health`);
       expect(res.status).toBe(200);
       expect(res.headers.get("content-security-policy")).toContain("default-src 'self'");
-      expect(res.headers.get("content-security-policy")).toContain("script-src 'self' https://s10.histats.com");
+      expect(res.headers.get("content-security-policy")).toContain("script-src 'self' https://*.histats.com");
       expect(res.headers.get("content-security-policy")).toContain("img-src 'self' data: https://*.histats.com");
       expect(res.headers.get("x-content-type-options")).toBe("nosniff");
       expect(res.headers.get("x-frame-options")).toBe("DENY");
