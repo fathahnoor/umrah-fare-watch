@@ -9,7 +9,7 @@ import { normalizeToIdrMinor } from "../../domain/money.js";
 import { getFxSnapshot, mockFxSnapshot } from "../fx.js";
 import type { FxSnapshot } from "../../domain/types.js";
 import { ProviderError, type HotelFrontier, type HotelProvider, type HotelSearchInput, type HotelSearchResult, type ProviderHealthSnapshot } from "../types.js";
-import type { HotelObservation, ProviderMode } from "../../domain/types.js";
+import type { ErrorCategory, HotelObservation, ProviderMode } from "../../domain/types.js";
 import { SerpapiClient } from "./serpapiClient.js";
 
 export const SERPAPI_HOTEL_ADAPTER_VERSION = "serpapi-hotels-v1-disabled";
@@ -139,12 +139,19 @@ export class SerpapiHotelProvider implements HotelProvider {
   private calls = 0;
   private failures = 0;
   private lastSuccessAt: string | null = null;
+  private lastFailureCategory: ErrorCategory | null = null;
 
   constructor(config: AppConfig) {
     this.config = config;
     this.enabled = config.realProvidersEnabled && config.serpapiKey != null;
     this.client = new SerpapiClient(config.serpapiKey);
     this.frontierDays = config.mockHotelFrontierDays ?? MOCK_HOTEL_FRONTIER_DAYS;
+  }
+
+  private fail(error: unknown): never {
+    this.failures += 1;
+    this.lastFailureCategory = error instanceof ProviderError ? error.category : "PROVIDER_UNAVAILABLE";
+    throw error;
   }
 
   async getFrontier(now: Date): Promise<HotelFrontier> {
@@ -159,6 +166,7 @@ export class SerpapiHotelProvider implements HotelProvider {
     this.calls += 1;
     if (!this.enabled) {
       this.failures += 1;
+      this.lastFailureCategory = "ACCESS_NOT_CONFIGURED";
       throw new ProviderError(
         "ACCESS_NOT_CONFIGURED",
         "SerpAPI Google Hotels menunggu akses resmi dan API key (SERPAPI_API_KEY + REAL_PROVIDERS_ENABLED)",
@@ -176,24 +184,35 @@ export class SerpapiHotelProvider implements HotelProvider {
     }
     const observedAt = input.now.toISOString();
     const center = CITY_CENTERS[input.city];
-    const payload = (await this.client.get({
-      engine: "google_hotels",
-      q: `Hotels in ${input.city === "MAKKAH" ? "Makkah" : "Madinah"}`,
-      check_in_date: input.checkIn,
-      check_out_date: input.checkOut,
-      adults: input.adults,
-      currency: "USD",
-      gl: "id",
-      hl: "en",
-      latitude: center.latitude,
-      longitude: center.longitude,
-    })) as GoogleHotelsPayload;
-    const fx = await getFxSnapshot("USD", input.now, this.config);
+    let payload: GoogleHotelsPayload;
+    try {
+      payload = (await this.client.get({
+        engine: "google_hotels",
+        q: `Hotels in ${input.city === "MAKKAH" ? "Makkah" : "Madinah"}`,
+        check_in_date: input.checkIn,
+        check_out_date: input.checkOut,
+        adults: input.adults,
+        currency: "USD",
+        gl: "id",
+        hl: "en",
+        latitude: center.latitude,
+        longitude: center.longitude,
+      })) as GoogleHotelsPayload;
+    } catch (error) {
+      this.fail(error);
+    }
+    let fx: FxSnapshot;
+    try {
+      fx = await getFxSnapshot("USD", input.now, this.config);
+    } catch (error) {
+      this.fail(error);
+    }
     let observations = mapGoogleHotelsPayload(payload, input, input.now, fx);
     observations = observations
       .filter((o) => o.straightLineDistanceKm <= input.radiusKm)
       .slice(0, 50);
     this.lastSuccessAt = observedAt;
+    this.lastFailureCategory = null;
     return {
       state: observations.length > 0 ? "HAS_RESULT" : "NO_RESULT",
       observations,
@@ -213,7 +232,7 @@ export class SerpapiHotelProvider implements HotelProvider {
         : "SerpAPI Google Hotels menunggu akses resmi dan API key (SERPAPI_API_KEY + REAL_PROVIDERS_ENABLED)",
       adapterVersion: SERPAPI_HOTEL_ADAPTER_VERSION,
       lastSuccessAt: this.lastSuccessAt,
-      lastFailureCategory: this.failures > 0 ? "ACCESS_NOT_CONFIGURED" : null,
+      lastFailureCategory: this.lastFailureCategory,
       frontier: await this.getFrontier(new Date()).then((f) => f.checkInFrontierDate),
       calls: this.calls,
       failures: this.failures,

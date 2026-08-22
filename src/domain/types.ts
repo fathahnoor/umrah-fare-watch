@@ -48,6 +48,7 @@ export type ErrorCategory =
   | "AUTH_REQUIRED"
   | "ACCESS_NOT_CONFIGURED"
   | "OUTSIDE_PROVIDER_FRONTIER"
+  | "QUOTA_EXCEEDED"
   | "RATE_LIMITED"
   | "PROVIDER_UNAVAILABLE"
   | "INVALID_PROVIDER_RESPONSE"
@@ -406,6 +407,7 @@ export interface TripSearchResponse {
   activeProviders: Array<{ id: string; mode: ProviderMode; enabled: boolean }>;
   unavailableProviders: Array<{
     id: string;
+    category: ErrorCategory;
     reason: string;
     retryable: boolean;
     nextEligibleAt: string | null;

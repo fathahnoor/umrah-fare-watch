@@ -12,6 +12,22 @@ export interface SerpapiErrorPayload {
   [key: string]: unknown;
 }
 
+function retryAfterAt(raw: string | null): string | null {
+  if (!raw) return null;
+  const seconds = Number.parseInt(raw, 10);
+  if (Number.isFinite(seconds) && seconds >= 0 && /^\d+$/.test(raw.trim())) {
+    return new Date(Date.now() + seconds * 1000).toISOString();
+  }
+  const timestamp = Date.parse(raw);
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
+}
+
+function isQuotaMessage(message: string): boolean {
+  return /run out of searches|no searches remaining|quota (?:is )?(?:exhausted|exceeded)|credits? (?:are )?(?:exhausted|depleted)|searches left\s*[:=]\s*0/i.test(
+    message,
+  );
+}
+
 export class SerpapiClient {
   constructor(
     private readonly apiKey: string | null,
@@ -30,7 +46,34 @@ export class SerpapiClient {
         url.searchParams.set(key, String(value));
       }
     }
-    const res = await fetch(url);
+    let res: Response;
+    try {
+      res = await fetch(url);
+    } catch {
+      throw new ProviderError("PROVIDER_UNAVAILABLE", "SerpAPI tidak dapat dijangkau", { retryable: true });
+    }
+    let payload: SerpapiErrorPayload = {};
+    try {
+      payload = (await res.json()) as SerpapiErrorPayload;
+    } catch {
+      // Status HTTP tetap menjadi sumber klasifikasi bila body bukan JSON.
+    }
+    const providerMessage = typeof payload.error === "string" ? payload.error : "";
+    if (res.status === 429) {
+      if (isQuotaMessage(providerMessage)) {
+        throw new ProviderError("QUOTA_EXCEEDED", "Kuota pencarian SerpAPI telah habis", {
+          retryable: false,
+          nextEligibleAt: retryAfterAt(res.headers.get("retry-after")),
+        });
+      }
+      throw new ProviderError("RATE_LIMITED", "Batas permintaan SerpAPI per jam tercapai", {
+        retryable: true,
+        nextEligibleAt: retryAfterAt(res.headers.get("retry-after")),
+      });
+    }
+    if (res.status === 401 || res.status === 403) {
+      throw new ProviderError("AUTH_REQUIRED", "Akses SerpAPI ditolak", { retryable: false });
+    }
     if (!res.ok) {
       throw new ProviderError(
         "PROVIDER_UNAVAILABLE",
@@ -38,11 +81,20 @@ export class SerpapiClient {
         { retryable: res.status >= 500 },
       );
     }
-    const payload = (await res.json()) as SerpapiErrorPayload;
-    if (typeof payload.error === "string" && payload.error !== "") {
+    if (providerMessage !== "") {
       const category =
-        /invalid api|unauthorized|authentication/i.test(payload.error) ? "AUTH_REQUIRED" : "INVALID_PROVIDER_RESPONSE";
-      throw new ProviderError(category, payload.error, { retryable: false });
+        /invalid api|unauthorized|authentication/i.test(providerMessage)
+          ? "AUTH_REQUIRED"
+          : isQuotaMessage(providerMessage)
+            ? "QUOTA_EXCEEDED"
+            : "INVALID_PROVIDER_RESPONSE";
+      const message =
+        category === "AUTH_REQUIRED"
+          ? "Akses SerpAPI ditolak"
+          : category === "QUOTA_EXCEEDED"
+            ? "Kuota pencarian SerpAPI telah habis"
+            : "SerpAPI mengembalikan respons yang tidak dapat diproses";
+      throw new ProviderError(category, message, { retryable: false });
     }
     return payload;
   }

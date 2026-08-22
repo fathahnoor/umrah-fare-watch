@@ -15,6 +15,7 @@ import type {
   CalendarResponse,
   City,
   CoverageRecord,
+  ErrorCategory,
   FlightCandidate,
   FlightObservation,
   FlightWatchlistParams,
@@ -61,6 +62,21 @@ interface HotelBucket {
   checkOut: string;
   observations: HotelObservation[];
   state: AvailabilityState;
+  errorCategory?: ErrorCategory;
+}
+
+function isProviderCapacityError(category: ErrorCategory): boolean {
+  return category === "QUOTA_EXCEEDED" || category === "RATE_LIMITED";
+}
+
+function providerFailureWarning(error: ProviderError, activity: string): string {
+  if (error.category === "QUOTA_EXCEEDED") {
+    return `Kuota API untuk ${activity} telah habis. Data demo tidak digunakan sebagai pengganti data live.`;
+  }
+  if (error.category === "RATE_LIMITED") {
+    return `Batas permintaan API untuk ${activity} sedang tercapai. Coba lagi setelah jeda provider berakhir.`;
+  }
+  return `${activity} gagal, hasil lain tetap dipertahankan.`;
 }
 
 export class SearchService {
@@ -142,11 +158,15 @@ export class SearchService {
         if (err instanceof ProviderError) {
           unavailableProviders.push({
             id: flightProvider.id,
+            category: err.category,
             reason: err.message,
             retryable: err.retryable,
             nextEligibleAt: err.nextEligibleAt,
           });
-          warnings.push("Sebagian verifikasi tiket gagal, hasil lain tetap dipakai");
+          warnings.push(providerFailureWarning(err, "verifikasi tiket"));
+          if (isProviderCapacityError(err.category)) {
+            break;
+          }
         } else {
           throw err;
         }
@@ -159,6 +179,7 @@ export class SearchService {
       MAKKAH: "NOT_SCANNED",
       MADINAH: "NOT_SCANNED",
     };
+    let hotelCapacityError: ErrorCategory | null = null;
 
     for (const flight of flightObservations) {
       const derived = deriveCityDates(flight, input);
@@ -194,19 +215,34 @@ export class SearchService {
 
         let bucket = hotelCache.get(key);
         if (!bucket) {
-          bucket = await this.searchHotelBucket(hotelProvider.id, {
-            providerId: hotelProvider.id,
-            city,
-            checkIn,
-            checkOut,
-            adults: input.adults,
-            childrenAges: input.childrenAges,
-            rooms: input.rooms,
-            radiusKm,
-            freeCancellationOnly: input.freeCancellationOnly,
-            currency: "IDR",
-            now,
-          }, unavailableProviders, warnings);
+          if (hotelCapacityError) {
+            bucket = {
+              key,
+              city,
+              checkIn,
+              checkOut,
+              observations: [],
+              state: "PROVIDER_UNAVAILABLE",
+              errorCategory: hotelCapacityError,
+            };
+          } else {
+            bucket = await this.searchHotelBucket(hotelProvider.id, {
+              providerId: hotelProvider.id,
+              city,
+              checkIn,
+              checkOut,
+              adults: input.adults,
+              childrenAges: input.childrenAges,
+              rooms: input.rooms,
+              radiusKm,
+              freeCancellationOnly: input.freeCancellationOnly,
+              currency: "IDR",
+              now,
+            }, unavailableProviders, warnings);
+            if (bucket.errorCategory && isProviderCapacityError(bucket.errorCategory)) {
+              hotelCapacityError = bucket.errorCategory;
+            }
+          }
           hotelCache.set(key, bucket);
         }
         cityStates[city] = mergeCityState(cityStates[city], bucket.state);
@@ -479,11 +515,17 @@ export class SearchService {
       if (err instanceof ProviderError) {
         unavailableProviders.push({
           id: providerId,
+          category: err.category,
           reason: err.message,
           retryable: err.retryable,
           nextEligibleAt: err.nextEligibleAt,
         });
-        warnings.push(`Pencarian hotel ${searchInput.city === "MAKKAH" ? "Makkah" : "Madinah"} gagal, data lama tidak dihapus`);
+        warnings.push(
+          providerFailureWarning(
+            err,
+            `pencarian hotel ${searchInput.city === "MAKKAH" ? "Makkah" : "Madinah"}`,
+          ),
+        );
         this.recordHotelCoverage(
           { providerId: searchInput.providerId, city: searchInput.city, checkIn: searchInput.checkIn },
           "PROVIDER_UNAVAILABLE",
@@ -491,7 +533,15 @@ export class SearchService {
           searchInput.now,
           err.category,
         );
-        return { key, city: searchInput.city, checkIn: searchInput.checkIn, checkOut: searchInput.checkOut, observations: [], state: "PROVIDER_UNAVAILABLE" };
+        return {
+          key,
+          city: searchInput.city,
+          checkIn: searchInput.checkIn,
+          checkOut: searchInput.checkOut,
+          observations: [],
+          state: "PROVIDER_UNAVAILABLE",
+          errorCategory: err.category,
+        };
       }
       throw err;
     }

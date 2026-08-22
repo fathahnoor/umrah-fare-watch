@@ -2,6 +2,7 @@
 // with source, rate, and timestamp; these values are clearly synthetic.
 import type { CurrencyCode, FxSnapshot } from "../domain/types.js";
 import { liveFxSnapshot } from "./fxLive.js";
+import { ProviderError } from "./types.js";
 
 export const MOCK_FX_RATES: Record<CurrencyCode, number> = {
   IDR: 1,
@@ -34,8 +35,9 @@ const fxCache = new Map<string, { snapshot: FxSnapshot; expiresAt: number }>();
 
 /**
  * Best-effort snapshot: live cached rate when FX_API_KEY is configured,
- * otherwise the deterministic mock table. Never throws on network failure:
- * a failed live fetch falls back to mock so a search is never blocked by FX.
+ * otherwise the deterministic mock table. A transient live failure falls back
+ * to mock, but quota/rate-limit errors are surfaced so LIVE mode never hides
+ * exhausted capacity behind synthetic exchange rates.
  */
 export async function getFxSnapshot(
   currency: CurrencyCode,
@@ -53,7 +55,13 @@ export async function getFxSnapshot(
     const snapshot = await liveFxSnapshot(currency, config.fxApiKey, config.fxApiUrl, now);
     fxCache.set(currency, { snapshot, expiresAt: now.getTime() + config.fxCacheTtlMs });
     return snapshot;
-  } catch {
+  } catch (error) {
+    if (
+      error instanceof ProviderError &&
+      (error.category === "QUOTA_EXCEEDED" || error.category === "RATE_LIMITED")
+    ) {
+      throw error;
+    }
     return mockFxSnapshot(currency, now.toISOString());
   }
 }

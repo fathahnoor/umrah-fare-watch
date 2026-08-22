@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { loadConfig } from "../src/config.js";
 import { convertToIdrRate, liveFxSnapshot } from "../src/providers/fxLive.js";
 import {
@@ -16,9 +16,15 @@ import {
 } from "../src/providers/registry.js";
 import { MOCK_FLIGHT_PROVIDER_ID } from "../src/providers/mock/fixtures.js";
 import { ProviderError, type FlightDiscoveryInput } from "../src/providers/types.js";
+import { SerpapiClient } from "../src/providers/serpapi/serpapiClient.js";
 import type { FlightCandidate } from "../src/domain/types.js";
 
 const NOW = new Date("2029-06-01T08:00:00Z");
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
 
 describe("Provider adapter contract fixtures (offline, no tokens)", () => {
   it("Travelpayouts mapAviasalesPayload maps realistic prices_for_dates rows", () => {
@@ -180,6 +186,32 @@ describe("Provider adapter contract fixtures (offline, no tokens)", () => {
     });
   });
 
+  it("liveFxSnapshot reports an exhausted monthly allowance as QUOTA_EXCEEDED", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: false,
+            error: {
+              code: 104,
+              type: "monthly_request_limit_reached",
+              info: "Your monthly request volume has been reached.",
+            },
+          }),
+          { status: 403, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+
+    await expect(
+      liveFxSnapshot("USD", "test-key", "https://example.test/live", NOW),
+    ).rejects.toMatchObject({
+      category: "QUOTA_EXCEEDED",
+      retryable: false,
+    });
+  });
+
   it("registry activation gate keeps mock active until REAL_PROVIDERS_ENABLED", () => {
     // Token alone: adapter present but disabled, mock still wins.
     const gated = createRegistry(
@@ -205,5 +237,43 @@ describe("Provider adapter contract fixtures (offline, no tokens)", () => {
     const err = new ProviderError("ACCESS_NOT_CONFIGURED", "disabled", { retryable: false });
     expect(err.category).toBe("ACCESS_NOT_CONFIGURED");
     expect(err.retryable).toBe(false);
+  });
+
+  it("SerpAPI maps an exhausted monthly search balance to QUOTA_EXCEEDED", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: "Your account has run out of searches." }), {
+          status: 429,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    const client = new SerpapiClient("test-key");
+    await expect(client.get({ engine: "google_flights" })).rejects.toMatchObject({
+      category: "QUOTA_EXCEEDED",
+      retryable: false,
+      nextEligibleAt: null,
+    });
+  });
+
+  it("SerpAPI keeps hourly throughput errors distinct from exhausted quota", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: "Hourly throughput limit reached." }), {
+          status: 429,
+          headers: { "Content-Type": "application/json", "Retry-After": "60" },
+        }),
+      ),
+    );
+    const client = new SerpapiClient("test-key");
+    await expect(client.get({ engine: "google_hotels" })).rejects.toMatchObject({
+      category: "RATE_LIMITED",
+      retryable: true,
+      nextEligibleAt: new Date(NOW.getTime() + 60_000).toISOString(),
+    });
   });
 });

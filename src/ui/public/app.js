@@ -257,24 +257,26 @@ async function runSearch() {
     });
     const [res] = await Promise.all([fetchPromise, timer]);
     response = res;
+  } catch (_error) {
+    response = null;
   } finally {
     submitBtn.disabled = false;
   }
 
   items.forEach((li, i) => (li.className = i === items.length - 1 ? "done" : "done"));
 
-  if (!response.ok) {
-    let errors = [];
-    let message = "Pencarian gagal diproses server";
+  if (!response || !response.ok) {
+    let body = {
+      code: "PROVIDER_UNAVAILABLE",
+      message: "Server atau provider tidak dapat dijangkau. Silakan coba lagi nanti.",
+    };
     try {
-      const body = await response.json();
-      if (body.errors && Array.isArray(body.errors)) errors = body.errors;
-      if (body.message) message = body.message;
+      if (response) body = await response.json();
     } catch (_e) {
       /* non-JSON error body */
     }
     panel.hidden = true;
-    renderServerErrors(errors.length > 0 ? errors : [{ field: "server", code: "ERROR", message }]);
+    renderApiFailure(body);
     return;
   }
 
@@ -283,12 +285,38 @@ async function runSearch() {
   renderResults(data);
 }
 
-function renderServerErrors(errors) {
+function renderApiFailure(body) {
+  if (body.errors && Array.isArray(body.errors) && body.errors.length > 0) {
+    renderServerErrors(body.errors);
+    return;
+  }
+  const code = body.code || "PROVIDER_UNAVAILABLE";
+  let title = "Pencarian live belum dapat diproses:";
+  const messages = [];
+  if (code === "QUOTA_EXCEEDED") {
+    title = "Kuota API provider habis:";
+    messages.push(body.message || "Pencarian live tersedia kembali setelah kuota provider diperbarui.");
+    messages.push("Data demo tidak ditampilkan sebagai pengganti data live.");
+  } else if (code === "RATE_LIMITED") {
+    title = "Batas permintaan sementara tercapai:";
+    messages.push(body.message || "Silakan coba kembali setelah jeda provider berakhir.");
+  } else {
+    messages.push(body.message || "Server atau provider tidak dapat dijangkau. Silakan coba lagi nanti.");
+  }
+  if (body.nextEligibleAt) {
+    messages.push(`Dapat dicoba kembali sekitar ${formatDateTime(body.nextEligibleAt)}.`);
+  }
+  renderServerErrors(messages.map((message) => ({ field: "server", code, message })), title);
+}
+
+function renderServerErrors(errors, title = "Periksa kembali input Anda:") {
   clearErrors();
   const banner = document.createElement("div");
   banner.className = "error-banner";
   banner.setAttribute("role", "alert");
-  banner.innerHTML = "<strong>Periksa kembali input Anda:</strong>";
+  const heading = document.createElement("strong");
+  heading.textContent = title;
+  banner.appendChild(heading);
   const list = document.createElement("ul");
   errors.forEach((e) => {
     const li = document.createElement("li");
@@ -328,7 +356,15 @@ async function updateProviderHero() {
     if (!active.length) return;
     const names = active.map((p) => PROVIDER_NAMES[p.id] || p.id);
     const anyReal = active.some((p) => p.mode && p.mode !== "MOCK");
-    const modeLabel = anyReal ? "data live dari provider nyata" : "mode demo, data sintetis";
+    const quotaExceeded = active.some((p) => p.lastFailureCategory === "QUOTA_EXCEEDED");
+    const rateLimited = active.some((p) => p.lastFailureCategory === "RATE_LIMITED");
+    const modeLabel = quotaExceeded
+      ? "provider live aktif, tetapi kuota API sedang habis"
+      : rateLimited
+        ? "provider live aktif, tetapi batas permintaan sementara tercapai"
+        : anyReal
+          ? "data live dari provider nyata"
+          : "mode demo, data sintetis";
     line.innerHTML = `Membandingkan provider aktif saat ini: <strong>${names.map(esc).join("</strong> dan <strong>")}</strong> (${esc(modeLabel)}). Lihat <a href="#tentang">cakupan</a>.`;
   } catch (_err) {
     // Biarkan teks statis default bila server tidak terjangkau.
@@ -393,9 +429,16 @@ function renderResults(data, opts = {}) {
   }
 
   const warningsEl = $("#warnings");
-  if (data.warnings.length > 0) {
+  const quotaFailures = (data.unavailableProviders || []).filter((item) => item.category === "QUOTA_EXCEEDED");
+  const warningMessages = [...(data.warnings || [])];
+  if (quotaFailures.length > 0) {
+    warningMessages.unshift("Kuota API provider telah habis. Data demo tidak digunakan sebagai pengganti data live.");
+  }
+  const uniqueWarnings = [...new Set(warningMessages)];
+  warningsEl.classList.toggle("quota-warning", quotaFailures.length > 0);
+  if (uniqueWarnings.length > 0) {
     warningsEl.hidden = false;
-    warningsEl.innerHTML = `<h3>Catatan</h3><ul>${data.warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>`;
+    warningsEl.innerHTML = `<h3>${quotaFailures.length > 0 ? "Kuota provider habis" : "Catatan"}</h3><ul>${uniqueWarnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>`;
   } else {
     warningsEl.hidden = true;
   }

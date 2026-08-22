@@ -147,10 +147,16 @@ export function createApp(deps: AppDeps): express.Express {
       const status =
         err.category === "PROVIDER_UNAVAILABLE" ? 503 :
         err.category === "OUTSIDE_PROVIDER_FRONTIER" ? 422 :
-        err.category === "RATE_LIMITED" ? 429 : 502;
+        err.category === "RATE_LIMITED" || err.category === "QUOTA_EXCEEDED" ? 429 : 502;
+      const message =
+        err.category === "QUOTA_EXCEEDED"
+          ? "Kuota API provider telah habis. Pencarian live tersedia kembali setelah kuota diperbarui."
+          : err.category === "RATE_LIMITED"
+            ? "Batas permintaan provider sementara tercapai. Silakan coba lagi nanti."
+            : "Provider tidak dapat diproses saat ini";
       res.status(status).json({
         code: err.category,
-        message: "Provider tidak dapat diproses saat ini",
+        message,
         retryable: err.retryable,
         nextEligibleAt: err.nextEligibleAt,
         correlationId,

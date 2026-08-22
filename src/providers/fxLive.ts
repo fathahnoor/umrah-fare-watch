@@ -15,6 +15,28 @@ interface FxApiResponse {
   source?: string;
   rates?: Record<string, number>;
   quotes?: Record<string, number>;
+  error?: string | {
+    code?: number;
+    type?: string;
+    info?: string;
+    message?: string;
+  };
+}
+
+function fxErrorText(payload: FxApiResponse): string {
+  if (typeof payload.error === "string") {
+    return payload.error;
+  }
+  if (payload.error && typeof payload.error === "object") {
+    return [payload.error.code, payload.error.type, payload.error.info, payload.error.message]
+      .filter((value) => value != null)
+      .join(" ");
+  }
+  return "";
+}
+
+function isQuotaError(message: string): boolean {
+  return /(?:quota|monthly|request volume|usage limit|access restricted|ran out)/i.test(message);
 }
 
 /**
@@ -42,11 +64,32 @@ export async function liveFxSnapshot(
   const url = new URL(apiUrl);
   // exchangerate.host authenticates via access_key; open.er-api.com ignores it.
   url.searchParams.set("access_key", apiKey);
-  const res = await fetch(url);
+  let res: Response;
+  try {
+    res = await fetch(url);
+  } catch {
+    throw new ProviderError("PROVIDER_UNAVAILABLE", "FX API tidak dapat dijangkau", { retryable: true });
+  }
+  let payload: FxApiResponse = {};
+  try {
+    payload = (await res.json()) as FxApiResponse;
+  } catch {
+    // Status handling below still gives callers a stable public error even
+    // when the upstream body is not JSON.
+  }
+  const providerMessage = fxErrorText(payload);
+  if (isQuotaError(providerMessage)) {
+    throw new ProviderError("QUOTA_EXCEEDED", "Kuota bulanan FX API telah habis", { retryable: false });
+  }
+  if (res.status === 429) {
+    throw new ProviderError("RATE_LIMITED", "FX API sedang membatasi jumlah permintaan", { retryable: true });
+  }
+  if (res.status === 401 || res.status === 403) {
+    throw new ProviderError("AUTH_REQUIRED", "Akses FX API ditolak", { retryable: false });
+  }
   if (!res.ok) {
     throw new ProviderError("PROVIDER_UNAVAILABLE", `FX API HTTP ${res.status}`, { retryable: true });
   }
-  const payload = (await res.json()) as FxApiResponse;
   const hasQuotes = payload.quotes != null && typeof payload.quotes === "object";
   const hasRates = payload.rates != null && typeof payload.rates === "object";
   const ok = payload.success !== false && payload.result !== "error" && (hasRates || hasQuotes);

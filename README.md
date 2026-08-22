@@ -12,6 +12,7 @@ Spesifikasi kanonis berada di `umrah-fare-watch-spec/`. Dokumen tersebut adalah 
 - **Provider live aktif:** **Google Flights** (tiket) dan **Google Hotels** (hotel Makkah/Madinah) melalui SerpAPI, dengan konversi FX live ke IDR. Provider lain tersedia sebagai adapter (Travelpayouts/Aviasales, Duffel) dan aktif sesuai kondisi pasar masing-masing.
 - **Fitur inti:** pencarian kombinasi, kalender harga, kalender cakupan per kota, watchlist + alert, dan alur lanjut-booking aman (detail di seksi Fitur).
 - **Kualitas:** release gate otomatis (`npm run release-gate`) yang menjalankan typecheck, lint, test, build, smoke test, dan validasi spesifikasi. Data provider real hanya ditampilkan setelah smoke test server-side untuk rute Indonesia lulus, demi menjaga keterbukaan data.
+- **Kuota provider:** kuota bulanan yang habis dibedakan dari pembatasan permintaan per jam. API dan UI menampilkan respons khusus, menghentikan panggilan provider lanjutan, dan tidak mengganti data live dengan data mock.
 - **Keamanan dan responsif (16 Agustus 2026):** penguatan API (rate limit, security headers + CSP, sesi ter-hash, lihat seksi Keamanan) dan tata letak yang nyaman dari layar hape 360px sampai desktop lebar: header ringkas tanpa geser horizontal, kartu hasil 2 kolom di desktop, format harga ringkas di kalender, dan kontrol sentuh minimal 44px.
 
 Catatan: angka fitur dan milestone berubah cepat; detail terkini ada di `umrah-fare-watch-spec/progress.md`, bukan di README ini.

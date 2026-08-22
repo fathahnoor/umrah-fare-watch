@@ -156,6 +156,11 @@ describe("API integration (mock mode, BUILD-03)", () => {
       expect(html).toContain("Cari kombinasi");
       expect(html).toContain('id="histats_counter"');
       expect(html).toContain("//sstatic1.histats.com/0.gif?5046661&101");
+      const script = await fetch(`${baseUrl}/app.js`);
+      expect(script.status).toBe(200);
+      const javascript = await script.text();
+      expect(javascript).toContain("QUOTA_EXCEEDED");
+      expect(javascript).toContain("Data demo tidak ditampilkan sebagai pengganti data live");
     });
   });
 });

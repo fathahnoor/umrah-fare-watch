@@ -12,7 +12,7 @@ import { normalizeToIdrMinor } from "../../domain/money.js";
 import { getFxSnapshot, mockFxSnapshot } from "../fx.js";
 import type { FxSnapshot } from "../../domain/types.js";
 import { ProviderError, type FlightDiscoveryInput, type FlightDiscoveryResult, type FlightProvider, type FlightVerificationInput, type FlightVerificationResult, type ProviderHealthSnapshot } from "../types.js";
-import type { FlightCandidate, FlightObservation, ProviderMode } from "../../domain/types.js";
+import type { ErrorCategory, FlightCandidate, FlightObservation, ProviderMode } from "../../domain/types.js";
 import { patternAirports } from "../travelpayouts/travelpayoutsFlightProvider.js";
 import { SerpapiClient } from "./serpapiClient.js";
 
@@ -191,6 +191,7 @@ export class SerpapiFlightProvider implements FlightProvider {
   private calls = 0;
   private failures = 0;
   private lastSuccessAt: string | null = null;
+  private lastFailureCategory: ErrorCategory | null = null;
 
   constructor(config: AppConfig) {
     this.config = config;
@@ -198,10 +199,17 @@ export class SerpapiFlightProvider implements FlightProvider {
     this.client = new SerpapiClient(config.serpapiKey);
   }
 
+  private fail(error: unknown): never {
+    this.failures += 1;
+    this.lastFailureCategory = error instanceof ProviderError ? error.category : "PROVIDER_UNAVAILABLE";
+    throw error;
+  }
+
   async discover(input: FlightDiscoveryInput): Promise<FlightDiscoveryResult> {
     this.calls += 1;
     if (!this.enabled) {
       this.failures += 1;
+      this.lastFailureCategory = "ACCESS_NOT_CONFIGURED";
       throw new ProviderError(
         "ACCESS_NOT_CONFIGURED",
         "SerpAPI Google Flights menunggu akses resmi dan API key (SERPAPI_API_KEY + REAL_PROVIDERS_ENABLED)",
@@ -209,24 +217,31 @@ export class SerpapiFlightProvider implements FlightProvider {
       );
     }
     const observedAt = input.now.toISOString();
-    const payload = (await this.client.get({
-      engine: "google_flights",
-      departure_id: input.origin,
-      arrival_id: "JED",
-      outbound_date: input.departureStart,
-      return_date: serpapiReturnDate(input),
-      type: "1",
-      currency: "USD",
-      hl: "en",
-      gl: "ID",
-      adults: input.adults,
-    })) as GoogleFlightsPayload;
+    let payload: GoogleFlightsPayload;
+    try {
+      payload = (await this.client.get({
+        engine: "google_flights",
+        departure_id: input.origin,
+        arrival_id: "JED",
+        outbound_date: input.departureStart,
+        return_date: serpapiReturnDate(input),
+        type: "1",
+        currency: "USD",
+        hl: "en",
+        gl: "ID",
+        adults: input.adults,
+      })) as GoogleFlightsPayload;
+    } catch (error) {
+      this.fail(error);
+    }
     const candidates = mapGoogleFlightsPayload(payload, input, input.now);
     if (candidates.length === 0) {
       this.failures += 1;
+      this.lastFailureCategory = "NOT_FOUND";
       throw new ProviderError("NOT_FOUND", "Google Flights tanpa hasil", { retryable: false });
     }
     this.lastSuccessAt = observedAt;
+    this.lastFailureCategory = null;
     return { candidates, observedAt };
   }
 
@@ -234,6 +249,7 @@ export class SerpapiFlightProvider implements FlightProvider {
     this.calls += 1;
     if (!this.enabled) {
       this.failures += 1;
+      this.lastFailureCategory = "ACCESS_NOT_CONFIGURED";
       throw new ProviderError(
         "ACCESS_NOT_CONFIGURED",
         "SerpAPI Google Flights menunggu akses resmi dan API key (SERPAPI_API_KEY + REAL_PROVIDERS_ENABLED)",
@@ -242,26 +258,38 @@ export class SerpapiFlightProvider implements FlightProvider {
     }
     const { candidate } = input;
     const observedAt = input.now.toISOString();
-    const payload = (await this.client.get({
-      engine: "google_flights",
-      departure_id: candidate.origin,
-      arrival_id: candidate.outboundAirport,
-      outbound_date: candidate.departureLocalDate,
-      return_date: candidate.returnLocalDate,
-      type: "1",
-      currency: "USD",
-      hl: "en",
-      gl: "ID",
-      adults: input.adults,
-    })) as GoogleFlightsPayload;
+    let payload: GoogleFlightsPayload;
+    try {
+      payload = (await this.client.get({
+        engine: "google_flights",
+        departure_id: candidate.origin,
+        arrival_id: candidate.outboundAirport,
+        outbound_date: candidate.departureLocalDate,
+        return_date: candidate.returnLocalDate,
+        type: "1",
+        currency: "USD",
+        hl: "en",
+        gl: "ID",
+        adults: input.adults,
+      })) as GoogleFlightsPayload;
+    } catch (error) {
+      this.fail(error);
+    }
     const rows = [...(payload.best_flights ?? []), ...(payload.other_flights ?? [])];
     const row = rows.find((r) => r.price != null);
     if (!row) {
       this.failures += 1;
+      this.lastFailureCategory = "NOT_FOUND";
       throw new ProviderError("NOT_FOUND", "Offer Google Flights tidak ditemukan saat verifikasi", { retryable: false });
     }
+    let fx: FxSnapshot;
+    try {
+      fx = await getFxSnapshot("USD", input.now, this.config);
+    } catch (error) {
+      this.fail(error);
+    }
     this.lastSuccessAt = observedAt;
-    const fx = await getFxSnapshot("USD", input.now, this.config);
+    this.lastFailureCategory = null;
     return { observation: mapGoogleFlightsObservation(row, candidate, input, observedAt, fx) };
   }
 
@@ -276,7 +304,7 @@ export class SerpapiFlightProvider implements FlightProvider {
         : "SerpAPI Google Flights menunggu akses resmi dan API key (SERPAPI_API_KEY + REAL_PROVIDERS_ENABLED)",
       adapterVersion: SERPAPI_FLIGHT_ADAPTER_VERSION,
       lastSuccessAt: this.lastSuccessAt,
-      lastFailureCategory: this.failures > 0 ? "ACCESS_NOT_CONFIGURED" : null,
+      lastFailureCategory: this.lastFailureCategory,
       frontier: null,
       calls: this.calls,
       failures: this.failures,
